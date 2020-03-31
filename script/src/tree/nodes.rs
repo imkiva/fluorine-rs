@@ -15,6 +15,8 @@ pub enum Atom {
 
 #[derive(Debug)]
 pub enum Expr {
+    _InternalError,
+
     AtomExpr(Atom),
     DBI(i32),
     UnaryExpr(char, Box<Expr>),

@@ -20,11 +20,10 @@ impl FsParser {
 fn parse_unit(pairs: Pairs<Rule>) -> Program {
     pairs.into_iter()
         .flat_map(|item| item.into_inner())
-        .map(|p| p.as_rule())
-        .map(|rule| {
-            match rule {
-                Rule::expr => ProgramItem::ExprItem(parse_expr(rule)),
-                Rule::decl => ProgramItem::DeclItem(parse_decl(rule)),
+        .map(|node| {
+            match node.as_rule() {
+                Rule::expr => ProgramItem::ExprItem(parse_expr(node)),
+                Rule::decl => ProgramItem::DeclItem(parse_decl(node)),
                 Rule::EOI => ProgramItem::EOFItem,
                 _ => unreachable!("rule should be expr or decl"),
             }
@@ -32,12 +31,21 @@ fn parse_unit(pairs: Pairs<Rule>) -> Program {
         .collect()
 }
 
-fn parse_expr(rule: Rule) -> Expr {
+fn parse_expr(node: Pair<Rule>) -> Expr {
     Expr::DBI(0)
 }
 
-fn parse_decl(rule: Rule) -> Decl {
-    Decl::LetDecl("Name".to_owned(), Expr::DBI(0))
+fn parse_decl(node: Pair<Rule>) -> Decl {
+    let mut id = "".to_string();
+    let mut expr = Expr::_InternalError;
+    for child in node.into_inner() {
+        match child.as_rule() {
+            Rule::id => id = child.as_str().to_owned(),
+            Rule::expr => expr = parse_expr(child),
+            _ => unreachable!("decl inner should be id or expr")
+        }
+    }
+    Decl::LetDecl(id, expr)
 }
 
 #[derive(Debug)]
