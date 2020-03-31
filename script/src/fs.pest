@@ -6,7 +6,7 @@
 
 unit = { (WHITESPACE | COMMENT | decl | expr)* ~ EOI }
 
-expr = { expr_relational ~ (logical_op ~ expr_relational)* }
+expr = { expr_relational ~ (logical_op ~ expr_relational)* ~ SEMI? }
 
 expr_list = { expr+ }
 
@@ -29,7 +29,7 @@ expr_binary_level2 = { expr_binary_level3 ~ (level2_op ~ expr_binary_level3)* }
 expr_binary_level3 = { expr_unary ~ (level3_op ~ expr_unary)? }
 
 expr_unary = { "!" ~ expr_unary
-             | expr_primary ~ lambda_apply?
+             | expr_primary ~ expr_apply?
              }
 
 expr_primary = { expr_quoted
@@ -42,7 +42,7 @@ expr_quoted = @ { "(" ~ expr ~ ")" }
 
 expr_lambda = { "{" ~ (param ~ "->")? ~ expr_list ~ "}" }
 
-lambda_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
+expr_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
 
 param = { id ~ ("," ~ id)* }
 
@@ -74,9 +74,11 @@ escape = _{ "\\\\"
           | "\\t"
           }
 
-decl = {"let" ~ id ~ "=" ~ expr ~ ";"}
+decl = {"let" ~ id ~ "=" ~ expr ~ SEMI?}
 
 id = $ { ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+
+SEMI = _ { ";" }
 
 WHITESPACE = _ { " "
                | "\t"
