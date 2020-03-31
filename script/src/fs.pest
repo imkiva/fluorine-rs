@@ -4,7 +4,7 @@
 // Author: kiva
 //
 
-unit = { (WHITESPACE | COMMENT | decl | expr)+ ~ EOI }
+unit = { (WHITESPACE | COMMENT | decl | expr)* ~ EOI }
 
 expr = { expr_relational ~ (logical_op ~ expr_relational)* }
 
