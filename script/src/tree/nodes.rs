@@ -27,3 +27,10 @@ pub enum Decl {
     Let(Name, Expr),
 }
 
+#[derive(Debug)]
+pub enum ProgramItem {
+    Expr(Expr),
+    Decl(Decl),
+}
+
+type Program = Vec<ProgramItem>;
