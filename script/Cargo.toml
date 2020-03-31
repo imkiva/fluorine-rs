@@ -1,5 +1,5 @@
 [package]
-name = "flourine-rs"
+name = "script"
 version = "0.1.0"
 authors = ["imkiva <imkiva@icloud.com>"]
 edition = "2018"
@@ -7,6 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-script = { path = 'script' }
-iced = "0.1.0-beta"
-
+pest = "2.1.3"
+pest_derive = "2.1.0"

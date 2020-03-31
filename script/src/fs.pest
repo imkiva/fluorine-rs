@@ -1,0 +1,87 @@
+//
+// Created by intellij-pest on 2020-03-31
+// fs
+// Author: kiva
+//
+
+unit = { (WHITESPACE | COMMENT | decl | expr)+ ~ EOI }
+
+expr = { expr_relational ~ (logical_op ~ expr_relational)* }
+
+expr_list = { expr+ }
+
+logical_op = { "&&" | "||" }
+
+relational_op = { "<" | "<=" | ">" | ">=" | "==" | "!=" }
+
+level1_op = { "+" | "-" }
+
+level2_op = { "*" | "/" | "%" }
+
+level3_op = { "^" }
+
+expr_relational = { expr_binary_level1 ~ (relational_op ~ expr_binary_level1)* }
+
+expr_binary_level1 = { expr_binary_level2 ~ (level1_op ~ expr_binary_level2)* }
+
+expr_binary_level2 = { expr_binary_level3 ~ (level2_op ~ expr_binary_level3)* }
+
+expr_binary_level3 = { expr_unary ~ (level3_op ~ expr_unary)? }
+
+expr_unary = { "!" ~ expr_unary
+             | expr_primary ~ lambda_apply?
+             }
+
+expr_primary = { expr_quoted
+               | expr_lambda
+               | id
+               | literal
+               }
+
+expr_quoted = @ { "(" ~ expr ~ ")" }
+
+expr_lambda = { "{" ~ param ~ "->" ~ expr_list ~ "}" }
+
+lambda_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
+
+param = { id ~ ("," ~ id)* }
+
+literal = { number_lit
+          | string_lit
+          }
+
+number_lit = $ { number_dec
+               | number_oct
+               | number_hex
+               | number_bin
+               }
+
+number_dec = _ { ("+" | "-")? ~ ASCII_DIGIT+ }
+
+number_oct = _ { ("+" | "-")? ~"0o" ~ ASCII_OCT_DIGIT+ }
+
+number_hex = _ { ("+" | "-")? ~"0x" ~ ASCII_HEX_DIGIT+ }
+
+number_bin = _ { ("+" | "-")? ~"0b" ~ ASCII_BIN_DIGIT+ }
+
+string_lit = $ { "\"" ~ (escape | (!("\\" | "\"") ~ ANY)+)* ~ "\""}
+
+escape = _{ "\\\\"
+          | "\\\""
+          | "\\'"
+          | "\\n"
+          | "\\r"
+          | "\\t"
+          }
+
+decl = {"let" ~ id ~ "=" ~ expr ~ ";"}
+
+id = $ { ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+
+WHITESPACE = _ { " "
+               | "\t"
+               | WHITE_SPACE
+               | NEWLINE
+               }
+
+COMMENT = _ { "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE? }
