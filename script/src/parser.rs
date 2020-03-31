@@ -36,16 +36,16 @@ fn parse_expr(node: Pair<Rule>) -> Expr {
 }
 
 fn parse_decl(node: Pair<Rule>) -> Decl {
-    let mut id = "".to_string();
+    let mut id = "";
     let mut expr = Expr::_InternalError;
     for child in node.into_inner() {
         match child.as_rule() {
-            Rule::id => id = child.as_str().to_owned(),
+            Rule::id => id = child.as_str(),
             Rule::expr => expr = parse_expr(child),
             _ => unreachable!("decl inner should be id or expr")
         }
     }
-    Decl::LetDecl(id, expr)
+    Decl::LetDecl(id.to_owned(), expr)
 }
 
 #[derive(Debug)]
