@@ -40,7 +40,7 @@ expr_primary = { expr_quoted
 
 expr_quoted = @ { "(" ~ expr ~ ")" }
 
-expr_lambda = { "{" ~ param ~ "->" ~ expr_list ~ "}" }
+expr_lambda = { "{" ~ (param ~ "->")? ~ expr_list ~ "}" }
 
 lambda_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
 
