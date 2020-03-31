@@ -50,19 +50,19 @@ literal = { number_lit
           | string_lit
           }
 
-number_lit = $ { number_dec
+number_lit = $ { number_hex
                | number_oct
-               | number_hex
                | number_bin
+               | number_dec
                }
 
 number_dec = _ { ("+" | "-")? ~ ASCII_DIGIT+ }
 
-number_oct = _ { ("+" | "-")? ~"0o" ~ ASCII_OCT_DIGIT+ }
+number_oct = _ { ("+" | "-")? ~ "0o" ~ ASCII_OCT_DIGIT+ }
 
-number_hex = _ { ("+" | "-")? ~"0x" ~ ASCII_HEX_DIGIT+ }
+number_hex = _ { ("+" | "-")? ~ "0x" ~ ASCII_HEX_DIGIT+ }
 
-number_bin = _ { ("+" | "-")? ~"0b" ~ ASCII_BIN_DIGIT+ }
+number_bin = _ { ("+" | "-")? ~ "0b" ~ ASCII_BIN_DIGIT+ }
 
 string_lit = $ { "\"" ~ (escape | (!("\\" | "\"") ~ ANY)+)* ~ "\""}
 
