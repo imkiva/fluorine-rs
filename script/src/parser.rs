@@ -10,7 +10,7 @@ use super::tree::nodes::*;
 pub struct FsParser;
 
 impl FsParser {
-    pub fn to_tree(input: &str) -> Result<Program, CompileError> {
+    pub fn ast(input: &str) -> Result<Program, CompileError> {
         let fs: Result<Pairs<Rule>, _> = FsParser::parse(Rule::unit, input);
         let pairs: Pairs<Rule> = fs.map_err(|e| CompileError(format!("{}", e)))?;
         Ok(parse_unit(pairs))
