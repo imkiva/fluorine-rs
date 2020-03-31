@@ -12,7 +12,7 @@ expr_list = { expr+ }
 
 logical_op = { "&&" | "||" }
 
-relational_op = { "<" | "<=" | ">" | ">=" | "==" | "!=" }
+relational_op = { "<=" | "<" | ">=" | ">" | "==" | "!=" }
 
 level1_op = { "+" | "-" }
 
@@ -40,7 +40,13 @@ expr_primary = { expr_quoted
 
 expr_quoted = @ { "(" ~ expr ~ ")" }
 
-expr_lambda = { "{" ~ (param ~ "->")? ~ expr_list ~ "}" }
+expr_lambda = { normal_lambda | quick_lambda }
+
+normal_lambda = { "{" ~ (param ~ "->")? ~ expr_list ~ "}" }
+
+quick_lambda = { UNDERLINE ~ quick_lambda_ops ~ UNDERLINE }
+
+quick_lambda_ops = _ { logical_op | relational_op | level1_op | level2_op | level3_op }
 
 expr_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
 
@@ -76,7 +82,9 @@ escape = _{ "\\\\"
 
 decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
 
-id = $ { (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHANUMERIC | "_" | "$")* }
+id = $ { (ASCII_ALPHA | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+UNDERLINE = _ { "_" }
 
 SEMI = _ { ";" }
 
