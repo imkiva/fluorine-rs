@@ -15,23 +15,23 @@ pub enum Atom {
 
 #[derive(Debug)]
 pub enum Expr {
-    Atom(Atom),
+    AtomExpr(Atom),
     DBI(i32),
-    Unary(char, Box<Expr>),
-    Binary(char, Box<Expr>, Box<Expr>),
-    Apply(Box<Expr>, Vec<Expr>),
+    UnaryExpr(char, Box<Expr>),
+    BinaryExpr(char, Box<Expr>, Box<Expr>),
+    ApplyExpr(Box<Expr>, Vec<Expr>),
 }
 
 #[derive(Debug)]
 pub enum Decl {
-    Let(Name, Expr),
+    LetDecl(Name, Expr),
 }
 
 #[derive(Debug)]
 pub enum ProgramItem {
-    Expr(Expr),
-    Decl(Decl),
-    EOF,
+    ExprItem(Expr),
+    DeclItem(Decl),
+    EOFItem,
 }
 
 pub type Program = Vec<ProgramItem>;
