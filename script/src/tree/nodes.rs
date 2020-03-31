@@ -31,6 +31,7 @@ pub enum Decl {
 pub enum ProgramItem {
     Expr(Expr),
     Decl(Decl),
+    EOF,
 }
 
-type Program = Vec<ProgramItem>;
+pub type Program = Vec<ProgramItem>;
