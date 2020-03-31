@@ -6,6 +6,3 @@ use pest::iterators::{Pair, Pairs};
 #[derive(Parser)]
 #[grammar = "fs.pest"]
 pub struct FsParser;
-
-impl FsParser {
-}
