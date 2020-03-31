@@ -76,7 +76,7 @@ escape = _{ "\\\\"
 
 decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
 
-id = $ { ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+id = $ { (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHANUMERIC | "_" | "$")* }
 
 SEMI = _ { ";" }
 
