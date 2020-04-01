@@ -1,13 +1,13 @@
 pub type Name = String;
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum Lit {
     LitNumber(f64),
     LitString(String),
     LitBool(bool),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Atom {
     AtomLit(Lit),
     AtomId(Name),
@@ -15,7 +15,7 @@ pub enum Atom {
     AtomRawLambda(Vec<Name>, Vec<Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     _InternalError,
 

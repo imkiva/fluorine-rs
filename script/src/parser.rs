@@ -113,7 +113,8 @@ fn parse_expr_atom(node: Pair<Rule>) -> Expr {
 fn parse_lambda(node: Pair<Rule>) -> Expr {
     let child = node.into_inner().next().unwrap();
     match child.as_rule() {
-        Rule::normal_lambda => parse_normal_lambda(child),
+        Rule::normal_lambda => dbi_lambda(&mut VecDeque::new(),
+                                          parse_normal_lambda(child)),
         Rule::quick_lambda => parse_quick_lambda(child),
         _ => unreachable!("lambda inner should be normal_lambda or quick_lambda")
     }
@@ -175,6 +176,58 @@ fn parse_decl(node: Pair<Rule>) -> Decl {
         }
     }
     Decl::LetDecl(id.to_owned(), expr)
+}
+
+fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
+    match expr {
+        // if this is a unsolved lambda
+        Expr::AtomExpr(Atom::AtomRawLambda(names, body)) => {
+            // names 这里被 borrow
+            param_stack.push_front(&names);
+
+            // recursively convert variable name to dbi
+            let r = Expr::AtomExpr(Atom::AtomLambda(
+                names.len() as i32,
+                body.iter()
+                    .map(|raw| dbi_expr(param_stack, raw.clone()))
+                    .collect(),
+            ));
+
+            param_stack.pop_front();
+            // 咋告诉傻逼 rustc，这个地方 names 已经没有 borrow 了
+            r
+        }
+
+        // not a lambda, just return what we have now
+        _ => expr,
+    }
+}
+
+fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
+    match &expr {
+        // resolve variable name to dbi
+        Expr::AtomExpr(Atom::AtomId(id)) => {
+            if let Some(index) = resolve_param(param_stack, id.as_str()) {
+                Expr::DBI(index)
+            } else {
+                expr
+            }
+        }
+
+        // try match lambda-in-lambda
+        _ => dbi_lambda(param_stack, expr),
+    }
+}
+
+fn resolve_param(param_stack: &VecDeque<&Vec<Name>>, name: &str) -> Option<i32> {
+    // TODO: resolve DBI
+    // let mut base_dbi = 0;
+    //
+    // for &scope in param_stack {
+    //
+    // }
+
+    None
 }
 
 #[derive(Debug)]
