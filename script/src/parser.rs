@@ -96,18 +96,18 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
             } else {
                 primary
             }
-        },
+        }
         _ => unreachable!("expr unary inner should be expr_primary or unary_op"),
     }
 }
 
 fn parse_expr_atom(node: Pair<Rule>) -> Expr {
-    let child = node.into_inner().into_iter().next().unwrap();
+    let child = node.into_inner().next().unwrap();
     match child.as_rule() {
         Rule::expr => parse_expr(child),
         Rule::expr_lambda => parse_lambda(child),
         Rule::id => Expr::AtomExpr(Atom::AtomId(child.as_str().to_owned())),
-        Rule::literal => Expr::AtomExpr(Atom::AtomLit(Lit::LitNumber(111 as f64))),
+        Rule::literal => parse_literal(child),
         _ => unreachable!("expr primary inner should be expr_quoted, expr_lambda, id or literal"),
     }
 }
@@ -118,6 +118,18 @@ fn parse_lambda(node: Pair<Rule>) -> Expr {
 
 fn parse_expr_list(node: Pair<Rule>) -> Vec<Expr> {
     Vec::new()
+}
+
+fn parse_literal(node: Pair<Rule>) -> Expr {
+    let lit = node.into_inner().next().unwrap();
+
+    Expr::AtomExpr(Atom::AtomLit(
+        match lit.as_rule() {
+            Rule::number_lit => Lit::LitNumber(lit.as_str().parse::<f64>().unwrap()),
+            Rule::string_lit => Lit::LitString(lit.as_str().to_owned()),
+            _ => unreachable!("unsupported literal type: {:?}", lit.as_rule()),
+        }
+    ))
 }
 
 fn parse_decl(node: Pair<Rule>) -> Decl {
