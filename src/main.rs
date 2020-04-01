@@ -1,4 +1,5 @@
 use script::parser::FsParser;
+use script::optimizer::Optimizer;
 
 pub fn main() {
     let t = FsParser::ast(
@@ -11,6 +12,12 @@ pub fn main() {
                let bool = true && false\n \
                let res = f(a, b, c, d)(e)"
     ).unwrap();
+
     println!("{:#?}", t);
+
+    let o = Optimizer::run(t);
+    println!();
+    println!();
+    println!("{:#?}", o);
 }
 
