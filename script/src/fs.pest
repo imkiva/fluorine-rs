@@ -42,7 +42,7 @@ expr_atom = { "(" ~ expr ~ ")"
 
 expr_lambda = { normal_lambda | quick_lambda }
 
-normal_lambda = { "{" ~ (param ~ "->")? ~ expr_list ~ "}" }
+normal_lambda = { "{" ~ param ~ "->" ~ expr_list ~ "}" }
 
 quick_lambda = { UNDERLINE ~ quick_lambda_ops ~ UNDERLINE }
 

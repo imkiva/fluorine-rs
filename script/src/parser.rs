@@ -137,16 +137,11 @@ fn parse_lambda(node: Pair<Rule>) -> Expr {
 
 fn parse_normal_lambda(node: Pair<Rule>) -> Expr {
     let mut nodes: VecDeque<Pair<Rule>> = node.into_inner().into_iter().collect();
-    if nodes.len() == 2 {
-        let params: Vec<Name> = nodes.pop_front().unwrap().into_inner().into_iter()
-            .map(|id| id.as_str().to_owned())
-            .collect();
-        let body = parse_expr_list(nodes.pop_back().unwrap());
-        AtomExpr(AtomRawLambda(params, body))
-    } else {
-        let body = parse_expr_list(nodes.pop_back().unwrap());
-        AtomExpr(AtomRawLambda(Vec::new(), body))
-    }
+    let params: Vec<Name> = nodes.pop_front().unwrap().into_inner().into_iter()
+        .map(|id| id.as_str().to_owned())
+        .collect();
+    let body = parse_expr_list(nodes.pop_back().unwrap());
+    AtomExpr(AtomRawLambda(params, body))
 }
 
 fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
