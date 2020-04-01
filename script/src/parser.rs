@@ -1,10 +1,8 @@
 use std::result::Result;
+use std::collections::VecDeque;
 use pest::Parser;
 use pest::iterators::{Pair, Pairs};
-
 use super::tree::nodes::*;
-use std::borrow::Borrow;
-use std::collections::VecDeque;
 
 #[derive(Parser)]
 #[grammar = "fs.pest"]
@@ -75,12 +73,35 @@ fn parse_binary_operand(node: Pair<Rule>) -> Expr {
         Rule::expr_binary_level1 => parse_expr_binary(node),
         Rule::expr_binary_level2 => parse_expr_binary(node),
         Rule::expr_binary_level3 => parse_expr_binary(node),
-        Rule::expr_unary => parse_expr_binary(node),
         _ => unreachable!("unsatisfied binary expr operands")
     }
 }
 
 fn parse_expr_unary(node: Pair<Rule>) -> Expr {
+    let mut nodes: VecDeque<Pair<Rule>> = node.into_inner().into_iter().collect();
+    let first = nodes.pop_front().unwrap();
+    match first.as_rule() {
+        Rule::unary_op => {
+            assert_eq!(nodes.len(), 2);
+            let operand = parse_expr_unary(nodes.pop_back().unwrap());
+            Expr::UnaryExpr(first.as_str().trim().to_owned(),
+                            Box::new(operand))
+        }
+        Rule::expr_primary => {
+            let primary = parse_expr_primary(first);
+            if let Some(apply) = nodes.pop_back() {
+                apply.into_inner().into_iter().fold(primary, |lhs, arg| {
+                    Expr::ApplyExpr(Box::new(lhs), Box::new(parse_expr(arg)))
+                })
+            } else {
+                primary
+            }
+        },
+        _ => unreachable!("expr unary inner should be expr_primary or unary_op"),
+    }
+}
+
+fn parse_expr_primary(node: Pair<Rule>) -> Expr {
     Expr::DBI(0)
 }
 

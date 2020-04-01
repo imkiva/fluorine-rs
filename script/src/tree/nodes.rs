@@ -21,7 +21,7 @@ pub enum Expr {
     DBI(i32),
     UnaryExpr(String, Box<Expr>),
     BinaryExpr(String, Box<Expr>, Box<Expr>),
-    ApplyExpr(Box<Expr>, Vec<Expr>),
+    ApplyExpr(Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug)]
