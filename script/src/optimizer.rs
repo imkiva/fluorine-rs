@@ -1,7 +1,7 @@
 use super::tree::*;
 use crate::tree::ProgramItem::{DeclItem, ExprItem};
 use crate::tree::Expr::{UnaryExpr, BinaryExpr, ApplyExpr, AtomExpr};
-use crate::tree::Atom::AtomLit;
+use crate::tree::Atom::{AtomLit, AtomLambda};
 use crate::tree::Lit::{LitBool, LitNumber};
 
 pub struct Optimizer;
@@ -27,7 +27,7 @@ fn optimize(expr: Expr) -> Expr {
             fold_binary(op, optimize(*lhs), optimize(*rhs)),
 
         ApplyExpr(f, a) =>
-            fold_apply(optimize(*f), optimize(*a)),
+            fold_apply(0, optimize(*f), optimize(*a)),
 
         _ => expr
     }
@@ -83,8 +83,57 @@ fn fold_binary(op: String, lhs: Expr, rhs: Expr) -> Expr {
     }
 }
 
-fn fold_apply(f: Expr, a: Expr) -> Expr {
-    ApplyExpr(Box::new(f), Box::new(a))
+fn fold_apply(start: i32, f: Expr, a: Expr) -> Expr {
+    match f {
+        AtomExpr(AtomLambda(ref argc, ref dbi, ref body)) =>
+            if *dbi < *argc {
+                // the lambda still accepts argument
+                let mut new_body: Vec<Expr> = body.into_iter()
+                    .map(|expr| subst(*argc, start + *dbi, expr.clone(), a.clone()))
+                    .collect();
+
+                if *dbi == *argc - 1 && new_body.len() == 1 {
+                    // 1. full applied after subst
+                    // 2. the lambda has only one expr in the body
+                    // so we can inline it!
+                    optimize(new_body.pop().unwrap())
+                } else {
+                    AtomExpr(AtomLambda(
+                        *argc, dbi + 1,
+                        new_body,
+                    ))
+                }
+            } else {
+                // full applied, do nothing
+                ApplyExpr(Box::new(f), Box::new(a))
+            },
+
+        _ => ApplyExpr(Box::new(f), Box::new(a)),
+    }
+}
+
+fn subst(argc: i32, dbi: i32, expr: Expr, a: Expr) -> Expr {
+    match &expr {
+        Expr::DBI(i) =>
+            if *i == dbi {
+                a
+            } else {
+                expr
+            },
+
+        UnaryExpr(op, unary) =>
+            UnaryExpr(op.clone(), Box::new(subst(argc, dbi, *unary.clone(), a))),
+
+        BinaryExpr(op, lhs, rhs) =>
+            BinaryExpr(op.clone(), Box::new(subst(argc, dbi, *lhs.clone(), a.clone())),
+                       Box::new(subst(argc, dbi, *rhs.clone(), a))),
+
+        // ApplyExpr(f, nested) =>
+        //     fold_apply(argc, subst(argc, dbi, *f.clone(), a.clone()),
+        //                subst(argc, dbi, *nested.clone(), a)),
+
+        _ => expr,
+    }
 }
 
 fn optimize_decl(decl: Decl) -> Decl {

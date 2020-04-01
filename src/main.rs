@@ -14,7 +14,10 @@ pub fn main() {
                let add = {a, b -> a + b}\n \
                let lll = { n -> { a -> n + a } }\n \
                let constant = {10086}\n \
-               let ide = { a -> a }(10)"
+               let ide = { a -> a }(10)\n \
+               let fold2 = { n -> n + 2 }(1)\n \
+               let fold3 = { n -> { a -> n + a } }(5)(10)\n\
+               let fold4 = {a, b -> a + b}(100, 200)"
     ).unwrap();
 
     let o = Optimizer::run(t);
