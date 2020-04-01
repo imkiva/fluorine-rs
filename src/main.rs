@@ -12,7 +12,9 @@ pub fn main() {
                let bool = true && false\n \
                let res = f(a, b, c, d)(e)\n \
                let add = {a, b -> a + b}\n \
-               let lll = { n -> { a -> n + a } }"
+               let lll = { n -> { a -> n + a } }\n \
+               let constant = {10086}\n \
+               let ide = { a -> a }(10)"
     ).unwrap();
 
     let o = Optimizer::run(t);
