@@ -40,11 +40,11 @@ fn parse_expr_binary(node: Pair<Rule>) -> Expr {
 
     for child in node.into_inner() {
         match child.as_rule() {
-            Rule::expr_relational => exprs.push_front(child),
-            Rule::expr_binary_level1 => exprs.push_front(child),
-            Rule::expr_binary_level2 => exprs.push_front(child),
-            Rule::expr_binary_level3 => exprs.push_front(child),
-            Rule::expr_unary => exprs.push_front(child),
+            Rule::expr_relational => exprs.push_back(child),
+            Rule::expr_binary_level1 => exprs.push_back(child),
+            Rule::expr_binary_level2 => exprs.push_back(child),
+            Rule::expr_binary_level3 => exprs.push_back(child),
+            Rule::expr_unary => exprs.push_back(child),
 
             Rule::logical_op => ops.push(child),
             Rule::relational_op => ops.push(child),
