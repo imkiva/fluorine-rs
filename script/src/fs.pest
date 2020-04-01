@@ -31,7 +31,7 @@ expr_binary_level2 = { expr_binary_level3 ~ (level2_op ~ expr_binary_level3)* }
 expr_binary_level3 = { expr_unary ~ (level3_op ~ expr_unary)? }
 
 expr_unary = { unary_op ~ expr_unary
-             | expr_atom ~ expr_apply?
+             | expr_atom ~ expr_apply*
              }
 
 expr_atom = { "(" ~ expr ~ ")"

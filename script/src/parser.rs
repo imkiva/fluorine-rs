@@ -89,13 +89,11 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
         }
         Rule::expr_atom => {
             let primary = parse_expr_atom(first);
-            if let Some(apply) = nodes.pop_back() {
-                apply.into_inner().into_iter().fold(primary, |lhs, arg| {
+            nodes.into_iter()
+                .flat_map(|apply| apply.into_inner())
+                .fold(primary, |lhs, arg| {
                     Expr::ApplyExpr(Box::new(lhs), Box::new(parse_expr(arg)))
                 })
-            } else {
-                primary
-            }
         }
         _ => unreachable!("expr unary inner should be expr_primary or unary_op"),
     }
