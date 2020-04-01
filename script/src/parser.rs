@@ -113,11 +113,31 @@ fn parse_expr_atom(node: Pair<Rule>) -> Expr {
 }
 
 fn parse_lambda(node: Pair<Rule>) -> Expr {
+    let child = node.into_inner().next().unwrap();
+    match child.as_rule() {
+        Rule::normal_lambda => parse_normal_lambda(child),
+        Rule::quick_lambda => parse_quick_lambda(child),
+        _ => unreachable!("lambda inner should be normal_lambda or quick_lambda")
+    }
+}
+
+fn parse_normal_lambda(node: Pair<Rule>) -> Expr {
+    let mut nodes: VecDeque<Pair<Rule>> = node.into_inner().into_iter().collect();
+    let params: Vec<Name> = nodes.pop_front().unwrap().into_inner().into_iter()
+        .map(|id| id.as_str().to_owned())
+        .collect();
+    let body = parse_expr_list(nodes.pop_back().unwrap());
+    Expr::AtomExpr(Atom::AtomRawLambda(params, body))
+}
+
+fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
     Expr::DBI(0)
 }
 
 fn parse_expr_list(node: Pair<Rule>) -> Vec<Expr> {
-    Vec::new()
+    node.into_inner().into_iter()
+        .map(|expr| parse_expr(expr))
+        .collect()
 }
 
 fn parse_literal(node: Pair<Rule>) -> Expr {

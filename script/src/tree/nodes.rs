@@ -1,4 +1,4 @@
-type Name = String;
+pub type Name = String;
 
 #[derive(Debug)]
 pub enum Lit {
@@ -11,6 +11,7 @@ pub enum Atom {
     AtomLit(Lit),
     AtomId(Name),
     AtomLambda(i32, Vec<Expr>),
+    AtomRawLambda(Vec<Name>, Vec<Expr>),
 }
 
 #[derive(Debug)]
