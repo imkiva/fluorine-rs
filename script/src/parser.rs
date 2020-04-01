@@ -157,7 +157,7 @@ fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
     let body = BinaryExpr(child.as_str().trim().to_owned(),
                           Box::new(DBI(0)),
                           Box::new(DBI(1)));
-    let lam = AtomLambda(2, vec![body]);
+    let lam = AtomLambda(2, 0, vec![body]);
     AtomExpr(lam)
 }
 
@@ -215,6 +215,7 @@ fn dbi_fuck_rustc(param_stack: &mut VecDeque<&Vec<Name>>, names: Vec<Name>, body
     // recursively convert variable name to dbi
     let r = AtomExpr(AtomLambda(
         names.len() as i32,
+        0,
         body.iter()
             .map(|raw| dbi_expr(param_stack, raw.clone()))
             .collect(),

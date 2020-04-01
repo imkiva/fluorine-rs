@@ -1,5 +1,8 @@
 pub type Name = String;
 
+type Argc = i32;
+type ApplyStartDBI = i32;
+
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum Lit {
     LitNumber(f64),
@@ -11,7 +14,7 @@ pub enum Lit {
 pub enum Atom {
     AtomLit(Lit),
     AtomId(Name),
-    AtomLambda(i32, Vec<Expr>),
+    AtomLambda(Argc, ApplyStartDBI, Vec<Expr>),
     AtomRawLambda(Vec<Name>, Vec<Expr>),
 }
 
