@@ -27,7 +27,7 @@ fn optimize(expr: Expr) -> Expr {
             fold_binary(op, optimize(*lhs), optimize(*rhs)),
 
         ApplyExpr(f, a) =>
-            fold_apply(0, optimize(*f), optimize(*a)),
+            fold_apply(0, optimize(*f), optimize(*a), false),
 
         _ => expr
     }
@@ -83,7 +83,8 @@ fn fold_binary(op: String, lhs: Expr, rhs: Expr) -> Expr {
     }
 }
 
-fn fold_apply(start: i32, f: Expr, a: Expr) -> Expr {
+fn fold_apply(start: i32, f: Expr, a: Expr, try_match: bool) -> Expr {
+    println!("fold_apply: start = {}, f = {:?}, arg = {:?}", start, f.clone(), a.clone());
     match f {
         AtomExpr(AtomLambda(ref argc, ref dbi, ref body)) =>
             if *dbi < *argc {
@@ -92,14 +93,15 @@ fn fold_apply(start: i32, f: Expr, a: Expr) -> Expr {
                     .map(|expr| subst(*argc, start + *dbi, expr.clone(), a.clone()))
                     .collect();
 
-                if *dbi == *argc - 1 && new_body.len() == 1 {
+                if !try_match && *dbi == *argc - 1 && new_body.len() == 1 {
                     // 1. full applied after subst
                     // 2. the lambda has only one expr in the body
                     // so we can inline it!
                     optimize(new_body.pop().unwrap())
                 } else {
                     AtomExpr(AtomLambda(
-                        *argc, dbi + 1,
+                        *argc,
+                        if !try_match { *dbi + 1 } else { *dbi },
                         new_body,
                     ))
                 }
@@ -108,7 +110,12 @@ fn fold_apply(start: i32, f: Expr, a: Expr) -> Expr {
                 ApplyExpr(Box::new(f), Box::new(a))
             },
 
-        _ => ApplyExpr(Box::new(f), Box::new(a)),
+        _ =>
+            if !try_match {
+                ApplyExpr(Box::new(f), Box::new(a))
+            } else {
+                f
+            },
     }
 }
 
@@ -132,7 +139,7 @@ fn subst(argc: i32, dbi: i32, expr: Expr, a: Expr) -> Expr {
         //     fold_apply(argc, subst(argc, dbi, *f.clone(), a.clone()),
         //                subst(argc, dbi, *nested.clone(), a)),
 
-        _ => expr,
+        _ => fold_apply(argc, expr, a, true),
     }
 }
 
