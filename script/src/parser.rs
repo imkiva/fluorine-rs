@@ -6,6 +6,8 @@ use crate::tree::*;
 use crate::tree::ProgramItem::*;
 use crate::tree::Expr::*;
 use crate::tree::Atom::*;
+use crate::tree::Decl::*;
+use crate::tree::Lit::*;
 
 #[derive(Parser)]
 #[grammar = "fs.pest"]
@@ -21,30 +23,25 @@ impl FsParser {
 
 fn convert_dbi(input: Program) -> Program {
     input.into_iter()
-        .map(|item|
-            match item {
-                ExprItem(AtomExpr(AtomRawLambda(names, body))) =>
-                    ExprItem(
-                        dbi_lambda(&mut VecDeque::new(),
-                                   AtomExpr(AtomRawLambda(names, body)))),
-                DeclItem(Decl::LetDecl(name, expr)) =>
-                    DeclItem(Decl::LetDecl(
-                        name, dbi_lambda(&mut VecDeque::new(), expr))),
-                _ => item,
-            })
+        .map(|item| match item {
+            ExprItem(AtomExpr(AtomRawLambda(names, body))) =>
+                ExprItem(dbi_lambda(&mut VecDeque::new(),
+                                    AtomExpr(AtomRawLambda(names, body)))),
+            DeclItem(LetDecl(name, expr)) =>
+                DeclItem(LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr))),
+            _ => item,
+        })
         .collect()
 }
 
 fn parse_unit(pairs: Pairs<Rule>) -> Program {
     pairs.into_iter()
         .flat_map(|item| item.into_inner())
-        .map(|node| {
-            match node.as_rule() {
-                Rule::expr => ExprItem(parse_expr(node)),
-                Rule::decl => DeclItem(parse_decl(node)),
-                Rule::EOI => EOFItem,
-                _ => unreachable!("rule should be expr or decl"),
-            }
+        .map(|node| match node.as_rule() {
+            Rule::expr => ExprItem(parse_expr(node)),
+            Rule::decl => DeclItem(parse_decl(node)),
+            Rule::EOI => EOFItem,
+            _ => unreachable!("rule should be expr or decl"),
         })
         .collect()
 }
@@ -175,9 +172,9 @@ fn parse_literal(node: Pair<Rule>) -> Expr {
 
     AtomExpr(AtomLit(
         match lit.as_rule() {
-            Rule::number_lit => Lit::LitNumber(lit.as_str().parse::<f64>().unwrap()),
-            Rule::string_lit => Lit::LitString(lit.as_str().to_owned()),
-            Rule::bool_lit => Lit::LitBool(lit.as_str().parse::<bool>().unwrap()),
+            Rule::number_lit => LitNumber(lit.as_str().parse::<f64>().unwrap()),
+            Rule::string_lit => LitString(lit.as_str().to_owned()),
+            Rule::bool_lit => LitBool(lit.as_str().parse::<bool>().unwrap()),
             _ => unreachable!("unsupported literal type: {:?}", lit.as_rule()),
         }
     ))
@@ -193,7 +190,7 @@ fn parse_decl(node: Pair<Rule>) -> Decl {
             _ => unreachable!("decl inner should be id or expr")
         }
     }
-    Decl::LetDecl(id.to_owned(), expr)
+    LetDecl(id.to_owned(), expr)
 }
 
 fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
