@@ -2,7 +2,7 @@ use std::result::Result;
 use std::collections::VecDeque;
 use pest::Parser;
 use pest::iterators::{Pair, Pairs};
-use super::tree::nodes::*;
+use super::tree::*;
 
 #[derive(Parser)]
 #[grammar = "fs.pest"]
