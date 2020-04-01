@@ -4,8 +4,9 @@ pub fn main() {
     let t = FsParser::ast(
         "let id = {a -> a}\n \
                let a = 1 > 20\n \
-               let b = fuck_a && fuck_b"
+               let b = fuck_a && fuck_b\n \
+               let c = (a)"
     ).unwrap();
-    println!("{:?}", t);
+    println!("{:#?}", t);
 }
 

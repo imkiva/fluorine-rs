@@ -2,15 +2,15 @@ type Name = String;
 
 #[derive(Debug)]
 pub enum Lit {
-    Number(f64),
-    String(String),
+    LitNumber(f64),
+    LitString(String),
 }
 
 #[derive(Debug)]
 pub enum Atom {
-    Literal(Lit),
-    Id(Name),
-    Lambda(i32, Vec<Expr>),
+    AtomLit(Lit),
+    AtomId(Name),
+    AtomLambda(i32, Vec<Expr>),
 }
 
 #[derive(Debug)]

@@ -87,8 +87,8 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
             Expr::UnaryExpr(first.as_str().trim().to_owned(),
                             Box::new(operand))
         }
-        Rule::expr_primary => {
-            let primary = parse_expr_primary(first);
+        Rule::expr_atom => {
+            let primary = parse_expr_atom(first);
             if let Some(apply) = nodes.pop_back() {
                 apply.into_inner().into_iter().fold(primary, |lhs, arg| {
                     Expr::ApplyExpr(Box::new(lhs), Box::new(parse_expr(arg)))
@@ -101,8 +101,23 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
     }
 }
 
-fn parse_expr_primary(node: Pair<Rule>) -> Expr {
+fn parse_expr_atom(node: Pair<Rule>) -> Expr {
+    let child = node.into_inner().into_iter().next().unwrap();
+    match child.as_rule() {
+        Rule::expr => parse_expr(child),
+        Rule::expr_lambda => parse_lambda(child),
+        Rule::id => Expr::AtomExpr(Atom::AtomId(child.as_str().to_owned())),
+        Rule::literal => Expr::AtomExpr(Atom::AtomLit(Lit::LitNumber(111 as f64))),
+        _ => unreachable!("expr primary inner should be expr_quoted, expr_lambda, id or literal"),
+    }
+}
+
+fn parse_lambda(node: Pair<Rule>) -> Expr {
     Expr::DBI(0)
+}
+
+fn parse_expr_list(node: Pair<Rule>) -> Vec<Expr> {
+    Vec::new()
 }
 
 fn parse_decl(node: Pair<Rule>) -> Decl {
