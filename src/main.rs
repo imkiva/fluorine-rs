@@ -8,7 +8,7 @@ pub fn main() {
                let c = (a) \n \
                let str = \"fuck huawei\"\n \
                let quick_lambda = _ + _ \n\
-               "
+               let bool = true && false\n"
     ).unwrap();
     println!("{:#?}", t);
 }

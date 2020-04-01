@@ -4,6 +4,7 @@ pub type Name = String;
 pub enum Lit {
     LitNumber(f64),
     LitString(String),
+    LitBool(bool),
 }
 
 #[derive(Debug)]

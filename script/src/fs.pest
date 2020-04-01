@@ -36,8 +36,8 @@ expr_unary = { unary_op ~ expr_unary
 
 expr_atom = { "(" ~ expr ~ ")"
             | expr_lambda
-            | id
             | literal
+            | id
             }
 
 expr_lambda = { normal_lambda | quick_lambda }
@@ -53,6 +53,7 @@ expr_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
 param = { id ~ ("," ~ id)* }
 
 literal = { number_lit
+          | bool_lit
           | string_lit
           }
 
@@ -69,6 +70,8 @@ number_oct = _ { ("+" | "-")? ~ "0o" ~ ASCII_OCT_DIGIT+ }
 number_hex = _ { ("+" | "-")? ~ "0x" ~ ASCII_HEX_DIGIT+ }
 
 number_bin = _ { ("+" | "-")? ~ "0b" ~ ASCII_BIN_DIGIT+ }
+
+bool_lit = { "true" | "false" }
 
 string_lit = $ { "\"" ~ (escape | (!("\\" | "\"") ~ ANY)+)* ~ "\""}
 

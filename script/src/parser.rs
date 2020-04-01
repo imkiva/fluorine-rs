@@ -160,6 +160,7 @@ fn parse_literal(node: Pair<Rule>) -> Expr {
         match lit.as_rule() {
             Rule::number_lit => Lit::LitNumber(lit.as_str().parse::<f64>().unwrap()),
             Rule::string_lit => Lit::LitString(lit.as_str().to_owned()),
+            Rule::bool_lit => Lit::LitBool(lit.as_str().parse::<bool>().unwrap()),
             _ => unreachable!("unsupported literal type: {:?}", lit.as_rule()),
         }
     ))
