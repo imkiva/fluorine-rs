@@ -84,7 +84,6 @@ fn fold_binary(op: String, lhs: Expr, rhs: Expr) -> Expr {
 }
 
 fn fold_apply(start: i32, f: Expr, a: Expr, try_match: bool) -> Expr {
-    println!("fold_apply: start = {}, f = {:?}, arg = {:?}", start, f.clone(), a.clone());
     match f {
         AtomExpr(AtomLambda(ref argc, ref dbi, ref body)) =>
             if *dbi < *argc {
@@ -134,10 +133,6 @@ fn subst(argc: i32, dbi: i32, expr: Expr, a: Expr) -> Expr {
         BinaryExpr(op, lhs, rhs) =>
             BinaryExpr(op.clone(), Box::new(subst(argc, dbi, *lhs.clone(), a.clone())),
                        Box::new(subst(argc, dbi, *rhs.clone(), a))),
-
-        // ApplyExpr(f, nested) =>
-        //     fold_apply(argc, subst(argc, dbi, *f.clone(), a.clone()),
-        //                subst(argc, dbi, *nested.clone(), a)),
 
         _ => fold_apply(argc, expr, a, true),
     }
