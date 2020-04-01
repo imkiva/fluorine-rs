@@ -19,8 +19,8 @@ pub enum Expr {
 
     AtomExpr(Atom),
     DBI(i32),
-    UnaryExpr(char, Box<Expr>),
-    BinaryExpr(char, Box<Expr>, Box<Expr>),
+    UnaryExpr(String, Box<Expr>),
+    BinaryExpr(String, Box<Expr>, Box<Expr>),
     ApplyExpr(Box<Expr>, Vec<Expr>),
 }
 

@@ -1,6 +1,5 @@
 use std::result::Result;
 use pest::Parser;
-use pest::error::Error;
 use pest::iterators::{Pair, Pairs};
 
 use super::tree::nodes::*;
@@ -32,6 +31,31 @@ fn parse_unit(pairs: Pairs<Rule>) -> Program {
 }
 
 fn parse_expr(node: Pair<Rule>) -> Expr {
+    let mut exprs = Vec::new();
+    let mut ops = Vec::new();
+
+    for child in node.into_inner() {
+        match child.as_rule() {
+            Rule::expr_relational => exprs.push(child),
+            Rule::logical_op => ops.push(child),
+            _ => unreachable!("expr inner should be expr_relational or logical_op"),
+        }
+    }
+
+    exprs.reverse();
+
+    let mut result = parse_expr_relational(exprs.pop().unwrap());
+    for op in ops {
+        let rhs = parse_expr_relational(exprs.pop().unwrap());
+        result = Expr::BinaryExpr(op.as_str().trim().to_owned(),
+                                  Box::new(result),
+                                  Box::new(rhs));
+    }
+
+    result
+}
+
+fn parse_expr_relational(node: Pair<Rule>) -> Expr {
     Expr::DBI(0)
 }
 
