@@ -1,6 +1,6 @@
 pub type Name = String;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, PartialOrd)]
 pub enum Lit {
     LitNumber(f64),
     LitString(String),

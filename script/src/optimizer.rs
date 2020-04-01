@@ -2,7 +2,7 @@ use super::tree::*;
 use crate::tree::ProgramItem::{DeclItem, ExprItem};
 use crate::tree::Expr::{UnaryExpr, BinaryExpr, ApplyExpr, AtomExpr};
 use crate::tree::Atom::AtomLit;
-use crate::tree::Lit::LitBool;
+use crate::tree::Lit::{LitBool, LitNumber};
 
 pub struct Optimizer;
 
@@ -57,6 +57,37 @@ fn fold_binary(op: String, lhs: Expr, rhs: Expr) -> Expr {
         ("&&", AtomExpr(AtomLit(LitBool(true))), _) => rhs,
         ("||", AtomExpr(AtomLit(LitBool(true))), _) => AtomExpr(AtomLit(LitBool(true))),
         ("||", AtomExpr(AtomLit(LitBool(false))), _) => rhs,
+
+        ("&&", _, AtomExpr(AtomLit(LitBool(false)))) => AtomExpr(AtomLit(LitBool(false))),
+        ("&&", _, AtomExpr(AtomLit(LitBool(true)))) => lhs,
+        ("||", _, AtomExpr(AtomLit(LitBool(true)))) => AtomExpr(AtomLit(LitBool(true))),
+        ("||", _, AtomExpr(AtomLit(LitBool(false)))) => lhs,
+
+        ("+", AtomExpr(AtomLit(LitNumber(a))), AtomExpr(AtomLit(LitNumber(b)))) =>
+            AtomExpr(AtomLit(LitNumber(a + b))),
+        ("-", AtomExpr(AtomLit(LitNumber(a))), AtomExpr(AtomLit(LitNumber(b)))) =>
+            AtomExpr(AtomLit(LitNumber(a - b))),
+        ("*", AtomExpr(AtomLit(LitNumber(a))), AtomExpr(AtomLit(LitNumber(b)))) =>
+            AtomExpr(AtomLit(LitNumber(a * b))),
+        ("/", AtomExpr(AtomLit(LitNumber(a))), AtomExpr(AtomLit(LitNumber(b)))) =>
+            AtomExpr(AtomLit(LitNumber(a / b))),
+        ("%", AtomExpr(AtomLit(LitNumber(a))), AtomExpr(AtomLit(LitNumber(b)))) =>
+            AtomExpr(AtomLit(LitNumber(a % b))),
+        ("^", AtomExpr(AtomLit(LitNumber(a))), AtomExpr(AtomLit(LitNumber(b)))) =>
+            AtomExpr(AtomLit(LitNumber(f64::powf(*a, *b)))),
+
+        ("==", AtomExpr(AtomLit(a)), AtomExpr(AtomLit(b))) =>
+            AtomExpr(AtomLit(LitBool(*a == *b))),
+        ("!=", AtomExpr(AtomLit(a)), AtomExpr(AtomLit(b))) =>
+            AtomExpr(AtomLit(LitBool(*a != *b))),
+        (">=", AtomExpr(AtomLit(a)), AtomExpr(AtomLit(b))) =>
+            AtomExpr(AtomLit(LitBool(*a >= *b))),
+        (">", AtomExpr(AtomLit(a)), AtomExpr(AtomLit(b))) =>
+            AtomExpr(AtomLit(LitBool(*a > *b))),
+        ("<=", AtomExpr(AtomLit(a)), AtomExpr(AtomLit(b))) =>
+            AtomExpr(AtomLit(LitBool(*a <= *b))),
+        ("<", AtomExpr(AtomLit(a)), AtomExpr(AtomLit(b))) =>
+            AtomExpr(AtomLit(LitBool(*a < *b))),
 
         _ => BinaryExpr(op, Box::new(lhs), Box::new(rhs)),
     }

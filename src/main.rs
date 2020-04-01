@@ -13,8 +13,6 @@ pub fn main() {
                let res = f(a, b, c, d)(e)"
     ).unwrap();
 
-    println!("{:#?}", t);
-
     let o = Optimizer::run(t);
     println!();
     println!();
