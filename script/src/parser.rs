@@ -49,8 +49,8 @@ fn parse_expr(node: Pair<Rule>) -> Expr {
     ops.into_iter().fold(lhs, |lhs, op| {
         let rhs = parse_expr_relational(exprs.pop_front().unwrap());
         Expr::BinaryExpr(op.as_str().trim().to_owned(),
-                                  Box::new(lhs),
-                                  Box::new(rhs))
+                         Box::new(lhs),
+                         Box::new(rhs))
     })
 }
 
