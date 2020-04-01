@@ -58,17 +58,17 @@ fn parse_expr_binary(node: Pair<Rule>) -> Expr {
         }
     }
 
-    let lhs = parse_bianry_operand(exprs.pop_front().unwrap());
+    let lhs = parse_binary_operand(exprs.pop_front().unwrap());
 
     ops.into_iter().fold(lhs, |lhs, op| {
-        let rhs = parse_bianry_operand(exprs.pop_front().unwrap());
+        let rhs = parse_binary_operand(exprs.pop_front().unwrap());
         Expr::BinaryExpr(op.as_str().trim().to_owned(),
                          Box::new(lhs),
                          Box::new(rhs))
     })
 }
 
-fn parse_bianry_operand(node: Pair<Rule>) -> Expr {
+fn parse_binary_operand(node: Pair<Rule>) -> Expr {
     match node.as_rule() {
         Rule::expr_unary => parse_expr_unary(node),
         Rule::expr_relational => parse_expr_binary(node),
