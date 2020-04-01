@@ -38,8 +38,8 @@ impl Optimizer {
 
 fn optimize(expr: Expr) -> Expr {
     match expr {
-        UnaryExpr(op, expr) =>
-            UnaryExpr(op, expr.fmap(optimize)),
+        UnaryExpr(op, operand) =>
+            fold_unary(op, optimize(*operand)),
 
         BinaryExpr(op, lhs, rhs) =>
             fold_binary(op, optimize(*lhs), optimize(*rhs)),
@@ -48,6 +48,14 @@ fn optimize(expr: Expr) -> Expr {
             fold_apply(optimize(*f), optimize(*a)),
 
         _ => expr
+    }
+}
+
+fn fold_unary(op: String, operand: Expr) -> Expr {
+    match (op.as_str(), &operand) {
+        ("!", AtomExpr(AtomLit(LitBool(b)))) =>
+            AtomExpr(AtomLit(LitBool(!*b))),
+        _ => UnaryExpr(op, Box::new(operand)),
     }
 }
 
