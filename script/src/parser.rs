@@ -3,6 +3,9 @@ use std::collections::VecDeque;
 use pest::Parser;
 use pest::iterators::{Pair, Pairs};
 use crate::tree::*;
+use crate::tree::ProgramItem::*;
+use crate::tree::Expr::*;
+use crate::tree::Atom::*;
 
 #[derive(Parser)]
 #[grammar = "fs.pest"]
@@ -12,8 +15,24 @@ impl FsParser {
     pub fn ast(input: &str) -> Result<Program, CompileError> {
         let fs = FsParser::parse(Rule::unit, input);
         let pairs = fs.map_err(|e| CompileError(format!("{}", e)))?;
-        Ok(parse_unit(pairs))
+        Ok(convert_dbi(parse_unit(pairs)))
     }
+}
+
+fn convert_dbi(input: Program) -> Program {
+    input.into_iter()
+        .map(|item|
+            match item {
+                ExprItem(AtomExpr(AtomRawLambda(names, body))) =>
+                    ExprItem(
+                        dbi_lambda(&mut VecDeque::new(),
+                                   AtomExpr(AtomRawLambda(names, body)))),
+                DeclItem(Decl::LetDecl(name, expr)) =>
+                    DeclItem(Decl::LetDecl(
+                        name, dbi_lambda(&mut VecDeque::new(), expr))),
+                _ => item,
+            })
+        .collect()
 }
 
 fn parse_unit(pairs: Pairs<Rule>) -> Program {
@@ -21,9 +40,9 @@ fn parse_unit(pairs: Pairs<Rule>) -> Program {
         .flat_map(|item| item.into_inner())
         .map(|node| {
             match node.as_rule() {
-                Rule::expr => ProgramItem::ExprItem(parse_expr(node)),
-                Rule::decl => ProgramItem::DeclItem(parse_decl(node)),
-                Rule::EOI => ProgramItem::EOFItem,
+                Rule::expr => ExprItem(parse_expr(node)),
+                Rule::decl => DeclItem(parse_decl(node)),
+                Rule::EOI => EOFItem,
                 _ => unreachable!("rule should be expr or decl"),
             }
         })
@@ -60,9 +79,9 @@ fn parse_expr_binary(node: Pair<Rule>) -> Expr {
 
     ops.into_iter().fold(lhs, |lhs, op| {
         let rhs = parse_binary_operand(exprs.pop_front().unwrap());
-        Expr::BinaryExpr(op.as_str().trim().to_owned(),
-                         Box::new(lhs),
-                         Box::new(rhs))
+        BinaryExpr(op.as_str().trim().to_owned(),
+                   Box::new(lhs),
+                   Box::new(rhs))
     })
 }
 
@@ -84,15 +103,15 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
         Rule::unary_op => {
             assert_eq!(nodes.len(), 2);
             let operand = parse_expr_unary(nodes.pop_back().unwrap());
-            Expr::UnaryExpr(first.as_str().trim().to_owned(),
-                            Box::new(operand))
+            UnaryExpr(first.as_str().trim().to_owned(),
+                      Box::new(operand))
         }
         Rule::expr_atom => {
             let primary = parse_expr_atom(first);
             nodes.into_iter()
                 .flat_map(|apply| apply.into_inner())
                 .fold(primary, |lhs, arg| {
-                    Expr::ApplyExpr(Box::new(lhs), Box::new(parse_expr(arg)))
+                    ApplyExpr(Box::new(lhs), Box::new(parse_expr(arg)))
                 })
         }
         _ => unreachable!("expr unary inner should be expr_primary or unary_op"),
@@ -104,7 +123,7 @@ fn parse_expr_atom(node: Pair<Rule>) -> Expr {
     match child.as_rule() {
         Rule::expr => parse_expr(child),
         Rule::expr_lambda => parse_lambda(child),
-        Rule::id => Expr::AtomExpr(Atom::AtomId(child.as_str().to_owned())),
+        Rule::id => AtomExpr(AtomId(child.as_str().to_owned())),
         Rule::literal => parse_literal(child),
         _ => unreachable!("expr primary inner should be expr_quoted, expr_lambda, id or literal"),
     }
@@ -113,8 +132,7 @@ fn parse_expr_atom(node: Pair<Rule>) -> Expr {
 fn parse_lambda(node: Pair<Rule>) -> Expr {
     let child = node.into_inner().next().unwrap();
     match child.as_rule() {
-        Rule::normal_lambda => dbi_lambda(&mut VecDeque::new(),
-                                          parse_normal_lambda(child)),
+        Rule::normal_lambda => parse_normal_lambda(child),
         Rule::quick_lambda => parse_quick_lambda(child),
         _ => unreachable!("lambda inner should be normal_lambda or quick_lambda")
     }
@@ -126,7 +144,7 @@ fn parse_normal_lambda(node: Pair<Rule>) -> Expr {
         .map(|id| id.as_str().to_owned())
         .collect();
     let body = parse_expr_list(nodes.pop_back().unwrap());
-    Expr::AtomExpr(Atom::AtomRawLambda(params, body))
+    AtomExpr(AtomRawLambda(params, body))
 }
 
 fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
@@ -139,11 +157,11 @@ fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
         Rule::level3_op => (),
         _ => unreachable!("unsupported quick lambda operator: {}", child.as_str())
     }
-    let body = Expr::BinaryExpr(child.as_str().trim().to_owned(),
-                                Box::new(Expr::DBI(0)),
-                                Box::new(Expr::DBI(1)));
-    let lam = Atom::AtomLambda(2, vec![body]);
-    Expr::AtomExpr(lam)
+    let body = BinaryExpr(child.as_str().trim().to_owned(),
+                          Box::new(DBI(0)),
+                          Box::new(DBI(1)));
+    let lam = AtomLambda(2, vec![body]);
+    AtomExpr(lam)
 }
 
 fn parse_expr_list(node: Pair<Rule>) -> Vec<Expr> {
@@ -155,7 +173,7 @@ fn parse_expr_list(node: Pair<Rule>) -> Vec<Expr> {
 fn parse_literal(node: Pair<Rule>) -> Expr {
     let lit = node.into_inner().next().unwrap();
 
-    Expr::AtomExpr(Atom::AtomLit(
+    AtomExpr(AtomLit(
         match lit.as_rule() {
             Rule::number_lit => Lit::LitNumber(lit.as_str().parse::<f64>().unwrap()),
             Rule::string_lit => Lit::LitString(lit.as_str().to_owned()),
@@ -167,7 +185,7 @@ fn parse_literal(node: Pair<Rule>) -> Expr {
 
 fn parse_decl(node: Pair<Rule>) -> Decl {
     let mut id = "";
-    let mut expr = Expr::_InternalError;
+    let mut expr = _InternalError;
     for child in node.into_inner() {
         match child.as_rule() {
             Rule::id => id = child.as_str(),
@@ -181,7 +199,7 @@ fn parse_decl(node: Pair<Rule>) -> Decl {
 fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
     match expr {
         // if this is a unsolved lambda
-        Expr::AtomExpr(Atom::AtomRawLambda(names, body)) =>
+        AtomExpr(AtomRawLambda(names, body)) =>
             dbi_fuck_rustc(param_stack, names, body),
 
         // not a lambda, just return what we have now
@@ -198,7 +216,7 @@ fn dbi_fuck_rustc(param_stack: &mut VecDeque<&Vec<Name>>, names: Vec<Name>, body
     }
 
     // recursively convert variable name to dbi
-    let r = Expr::AtomExpr(Atom::AtomLambda(
+    let r = AtomExpr(AtomLambda(
         names.len() as i32,
         body.iter()
             .map(|raw| dbi_expr(param_stack, raw.clone()))
@@ -212,24 +230,24 @@ fn dbi_fuck_rustc(param_stack: &mut VecDeque<&Vec<Name>>, names: Vec<Name>, body
 fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
     match &expr {
         // resolve variable name to dbi
-        Expr::AtomExpr(Atom::AtomId(id)) => {
+        AtomExpr(AtomId(id)) => {
             if let Some(index) = resolve_param(param_stack, id.as_str()) {
-                Expr::DBI(index)
+                DBI(index)
             } else {
                 expr
             }
         }
 
-        Expr::UnaryExpr(op, unary) =>
-            Expr::UnaryExpr(op.clone(), Box::new(dbi_expr(param_stack, *unary.clone()))),
+        UnaryExpr(op, unary) =>
+            UnaryExpr(op.clone(), Box::new(dbi_expr(param_stack, *unary.clone()))),
 
-        Expr::BinaryExpr(op, lhs, rhs) =>
-            Expr::BinaryExpr(op.clone(), Box::new(dbi_expr(param_stack, *lhs.clone())),
-                             Box::new(dbi_expr(param_stack, *rhs.clone()))),
+        BinaryExpr(op, lhs, rhs) =>
+            BinaryExpr(op.clone(), Box::new(dbi_expr(param_stack, *lhs.clone())),
+                       Box::new(dbi_expr(param_stack, *rhs.clone()))),
 
-        Expr::ApplyExpr(f, a) =>
-            Expr::ApplyExpr(Box::new(dbi_expr(param_stack, *f.clone())),
-                            Box::new(dbi_expr(param_stack, *a.clone()))),
+        ApplyExpr(f, a) =>
+            ApplyExpr(Box::new(dbi_expr(param_stack, *f.clone())),
+                      Box::new(dbi_expr(param_stack, *a.clone()))),
 
         // try match nested lambda
         _ => dbi_lambda(param_stack, expr),
