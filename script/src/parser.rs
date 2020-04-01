@@ -33,28 +33,54 @@ fn parse_unit(pairs: Pairs<Rule>) -> Program {
 }
 
 fn parse_expr(node: Pair<Rule>) -> Expr {
+    parse_expr_binary(node)
+}
+
+fn parse_expr_binary(node: Pair<Rule>) -> Expr {
     let mut exprs = VecDeque::new();
     let mut ops = Vec::new();
 
     for child in node.into_inner() {
         match child.as_rule() {
             Rule::expr_relational => exprs.push_front(child),
+            Rule::expr_binary_level1 => exprs.push_front(child),
+            Rule::expr_binary_level2 => exprs.push_front(child),
+            Rule::expr_binary_level3 => exprs.push_front(child),
+            Rule::expr_unary => exprs.push_front(child),
+
             Rule::logical_op => ops.push(child),
-            _ => unreachable!("expr inner should be expr_relational or logical_op"),
+            Rule::relational_op => ops.push(child),
+            Rule::level1_op => ops.push(child),
+            Rule::level2_op => ops.push(child),
+            Rule::level3_op => ops.push(child),
+
+            _ => unreachable!("unsatisfied binary expr operands or operators"),
         }
     }
 
-    let lhs = parse_expr_relational(exprs.pop_front().unwrap());
+    let lhs = parse_bianry_operand(exprs.pop_front().unwrap());
 
     ops.into_iter().fold(lhs, |lhs, op| {
-        let rhs = parse_expr_relational(exprs.pop_front().unwrap());
+        let rhs = parse_bianry_operand(exprs.pop_front().unwrap());
         Expr::BinaryExpr(op.as_str().trim().to_owned(),
                          Box::new(lhs),
                          Box::new(rhs))
     })
 }
 
-fn parse_expr_relational(node: Pair<Rule>) -> Expr {
+fn parse_bianry_operand(node: Pair<Rule>) -> Expr {
+    match node.as_rule() {
+        Rule::expr_unary => parse_expr_unary(node),
+        Rule::expr_relational => parse_expr_binary(node),
+        Rule::expr_binary_level1 => parse_expr_binary(node),
+        Rule::expr_binary_level2 => parse_expr_binary(node),
+        Rule::expr_binary_level3 => parse_expr_binary(node),
+        Rule::expr_unary => parse_expr_binary(node),
+        _ => unreachable!("unsatisfied binary expr operands")
+    }
+}
+
+fn parse_expr_unary(node: Pair<Rule>) -> Expr {
     Expr::DBI(0)
 }
 
