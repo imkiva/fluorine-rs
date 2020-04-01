@@ -1,4 +1,4 @@
-use super::tree::*;
+use crate::tree::*;
 use crate::tree::ProgramItem::{DeclItem, ExprItem};
 use crate::tree::Expr::{UnaryExpr, BinaryExpr, ApplyExpr, AtomExpr};
 use crate::tree::Atom::{AtomLit, AtomLambda};
