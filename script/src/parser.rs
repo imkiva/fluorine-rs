@@ -2,7 +2,7 @@ use std::result::Result;
 use std::collections::VecDeque;
 use pest::Parser;
 use pest::iterators::{Pair, Pairs};
-use super::tree::*;
+use crate::tree::*;
 
 #[derive(Parser)]
 #[grammar = "fs.pest"]
@@ -181,26 +181,32 @@ fn parse_decl(node: Pair<Rule>) -> Decl {
 fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
     match expr {
         // if this is a unsolved lambda
-        Expr::AtomExpr(Atom::AtomRawLambda(names, body)) => {
-            // names 这里被 borrow
-            param_stack.push_front(&names);
-
-            // recursively convert variable name to dbi
-            let r = Expr::AtomExpr(Atom::AtomLambda(
-                names.len() as i32,
-                body.iter()
-                    .map(|raw| dbi_expr(param_stack, raw.clone()))
-                    .collect(),
-            ));
-
-            param_stack.pop_front();
-            // 咋告诉傻逼 rustc，这个地方 names 已经没有 borrow 了
-            r
-        }
+        Expr::AtomExpr(Atom::AtomRawLambda(names, body)) =>
+            dbi_fuck_rustc(param_stack, names, body),
 
         // not a lambda, just return what we have now
         _ => expr,
     }
+}
+
+fn dbi_fuck_rustc(param_stack: &mut VecDeque<&Vec<Name>>, names: Vec<Name>, body: Vec<Expr>) -> Expr {
+    // I know what I am doing!
+    unsafe {
+        // This is totally SAFE!!!!
+        let ptr: *const Vec<Name> = &names;
+        param_stack.push_front(&*ptr);
+    }
+
+    // recursively convert variable name to dbi
+    let r = Expr::AtomExpr(Atom::AtomLambda(
+        names.len() as i32,
+        body.iter()
+            .map(|raw| dbi_expr(param_stack, raw.clone()))
+            .collect(),
+    ));
+
+    let _ = param_stack.pop_front();
+    r
 }
 
 fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
@@ -214,19 +220,31 @@ fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
             }
         }
 
-        // try match lambda-in-lambda
+        Expr::UnaryExpr(op, unary) =>
+            Expr::UnaryExpr(op.clone(), Box::new(dbi_expr(param_stack, *unary.clone()))),
+
+        Expr::BinaryExpr(op, lhs, rhs) =>
+            Expr::BinaryExpr(op.clone(), Box::new(dbi_expr(param_stack, *lhs.clone())),
+                             Box::new(dbi_expr(param_stack, *rhs.clone()))),
+
+        Expr::ApplyExpr(f, a) =>
+            Expr::ApplyExpr(Box::new(dbi_expr(param_stack, *f.clone())),
+                            Box::new(dbi_expr(param_stack, *a.clone()))),
+
+        // try match nested lambda
         _ => dbi_lambda(param_stack, expr),
     }
 }
 
 fn resolve_param(param_stack: &VecDeque<&Vec<Name>>, name: &str) -> Option<i32> {
-    // TODO: resolve DBI
-    // let mut base_dbi = 0;
-    //
-    // for &scope in param_stack {
-    //
-    // }
+    let mut base_dbi = 0;
 
+    for &scope in param_stack {
+        if let Some(index) = scope.into_iter().position(|r| r == name) {
+            return Some(base_dbi + index as i32);
+        }
+        base_dbi += scope.len() as i32;
+    }
     None
 }
 

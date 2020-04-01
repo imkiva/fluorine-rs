@@ -10,7 +10,8 @@ pub fn main() {
                let str = \"fuck huawei\"\n \
                let quick_lambda = _ + _ \n\
                let bool = true && false\n \
-               let res = f(a, b, c, d)(e)"
+               let res = f(a, b, c, d)(e)\n \
+               let add = {a, b -> a + b}"
     ).unwrap();
 
     let o = Optimizer::run(t);
