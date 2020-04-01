@@ -6,7 +6,9 @@ pub fn main() {
                let a = 1 > 20\n \
                let b = fuck_a && fuck_b\n \
                let c = (a) \n \
-               let str = \"fuck huawei\"\n"
+               let str = \"fuck huawei\"\n \
+               let quick_lambda = _ + _ \n\
+               "
     ).unwrap();
     println!("{:#?}", t);
 }

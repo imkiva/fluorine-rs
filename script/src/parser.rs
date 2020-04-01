@@ -131,7 +131,20 @@ fn parse_normal_lambda(node: Pair<Rule>) -> Expr {
 }
 
 fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
-    Expr::DBI(0)
+    let child = node.into_inner().next().unwrap();
+    match child.as_rule() {
+        Rule::logical_op => (),
+        Rule::relational_op => (),
+        Rule::level1_op => (),
+        Rule::level2_op => (),
+        Rule::level3_op => (),
+        _ => unreachable!("unsupported quick lambda operator: {}", child.as_str())
+    }
+    let body = Expr::BinaryExpr(child.as_str().trim().to_owned(),
+                                Box::new(Expr::DBI(0)),
+                                Box::new(Expr::DBI(1)));
+    let lam = Atom::AtomLambda(2, vec![body]);
+    Expr::AtomExpr(lam)
 }
 
 fn parse_expr_list(node: Pair<Rule>) -> Vec<Expr> {
