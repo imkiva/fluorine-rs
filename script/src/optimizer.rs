@@ -85,29 +85,29 @@ fn fold_binary(op: String, lhs: Expr, rhs: Expr) -> Expr {
 
 fn fold_apply(start: i32, f: Expr, a: Expr, try_match: bool) -> Expr {
     match f {
-        AtomExpr(AtomLambda(ref argc, ref dbi, ref body)) =>
-            if *dbi < *argc {
-                // the lambda still accepts argument
-                let mut new_body: Vec<Expr> = body.into_iter()
-                    .map(|expr| subst(*argc, start + *dbi, expr.clone(), a.clone()))
-                    .collect();
+        AtomExpr(AtomLambda(ref argc, ref dbi, ref body))
+        if *dbi < *argc => {
+            // the lambda still accepts argument
+            let mut new_body: Vec<Expr> = body.into_iter()
+                .map(|expr| subst(*argc, start + *dbi, expr.clone(), a.clone()))
+                .collect();
 
-                if !try_match && *dbi == *argc - 1 && new_body.len() == 1 {
-                    // 1. full applied after subst
-                    // 2. the lambda has only one expr in the body
-                    // so we can inline it!
-                    optimize(new_body.pop().unwrap())
-                } else {
-                    AtomExpr(AtomLambda(
-                        *argc,
-                        if !try_match { *dbi + 1 } else { *dbi },
-                        new_body,
-                    ))
-                }
+            if !try_match && *dbi == *argc - 1 && new_body.len() == 1 {
+                // 1. full applied after subst
+                // 2. the lambda has only one expr in the body
+                // so we can inline it!
+                optimize(new_body.pop().unwrap())
             } else {
-                // full applied, do nothing
-                ApplyExpr(Box::new(f), Box::new(a))
-            },
+                AtomExpr(AtomLambda(
+                    *argc,
+                    if !try_match { *dbi + 1 } else { *dbi },
+                    new_body,
+                ))
+            }
+        }
+
+        AtomExpr(AtomLambda(_, _, _)) =>
+            ApplyExpr(Box::new(f), Box::new(a)),
 
         _ =>
             if !try_match {
@@ -120,12 +120,8 @@ fn fold_apply(start: i32, f: Expr, a: Expr, try_match: bool) -> Expr {
 
 fn subst(argc: i32, dbi: i32, expr: Expr, a: Expr) -> Expr {
     match &expr {
-        Expr::DBI(i) =>
-            if *i == dbi {
-                a
-            } else {
-                expr
-            },
+        Expr::DBI(i) if dbi == *i => a,
+        Expr::DBI(_) => expr,
 
         UnaryExpr(op, unary) =>
             UnaryExpr(op.clone(), Box::new(subst(argc, dbi, *unary.clone(), a))),
