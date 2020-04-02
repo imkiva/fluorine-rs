@@ -27,13 +27,14 @@ impl FsParser {
 
 fn convert_dbi(input: Program) -> Program {
     input.into_iter()
-        .filter_map(|item| match item {
-            ExprItem(AtomExpr(AtomRawLambda(names, body))) => Some(
+        .map(|item| match item {
+            ExprItem(AtomExpr(AtomRawLambda(names, body))) =>
                 ExprItem(dbi_lambda(&mut VecDeque::new(),
-                                    AtomExpr(AtomRawLambda(names, body))))),
-            DeclItem(LetDecl(name, expr)) => Some(
-                DeclItem(LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr)))),
-            _ => None,
+                                    AtomExpr(AtomRawLambda(names, body)))),
+            DeclItem(LetDecl(name, expr)) =>
+                DeclItem(LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr))),
+
+            _ => item,
         })
         .collect()
 }
@@ -41,10 +42,10 @@ fn convert_dbi(input: Program) -> Program {
 fn parse_unit(pairs: Pairs<Rule>) -> Program {
     pairs.into_iter()
         .flat_map(|item| item.into_inner())
-        .map(|node| match node.as_rule() {
-            Rule::expr => ExprItem(parse_expr(node)),
-            Rule::decl => DeclItem(parse_decl(node)),
-            Rule::EOI => EOFItem,
+        .filter_map(|node| match node.as_rule() {
+            Rule::expr => Some(ExprItem(parse_expr(node))),
+            Rule::decl => Some(DeclItem(parse_decl(node))),
+            Rule::EOI => None,
             _ => unreachable!("rule should be expr or decl"),
         })
         .collect()
