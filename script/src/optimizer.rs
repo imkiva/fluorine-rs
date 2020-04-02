@@ -132,6 +132,10 @@ fn subst(dbi: i32, expr: Expr, a: Expr) -> Expr {
             AtomExpr(AtomLambda(*ret_argc, *ret_dbi, new_body))
         }
 
+        ApplyExpr(f, arg) =>
+            fold_apply(subst(dbi, *f.clone(), a.clone()),
+                       subst(dbi, *arg.clone(), a.clone())),
+
         _ => expr,
     }
 }
