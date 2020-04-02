@@ -2,6 +2,7 @@ use std::result::Result;
 use std::collections::VecDeque;
 use pest::Parser;
 use pest::iterators::{Pair, Pairs};
+use pest::error::Error;
 use crate::tree::*;
 use crate::tree::ProgramItem::*;
 use crate::tree::Expr::*;
@@ -13,10 +14,13 @@ use crate::tree::Lit::*;
 #[grammar = "fs.pest"]
 pub struct FsParser;
 
+#[derive(Debug)]
+pub struct CompileError(pub Error<Rule>);
+
 impl FsParser {
     pub fn ast(input: &str) -> Result<Program, CompileError> {
         let fs = FsParser::parse(Rule::unit, input);
-        let pairs = fs.map_err(|e| CompileError(format!("{}", e)))?;
+        let pairs = fs.map_err(|e| CompileError(e))?;
         Ok(convert_dbi(parse_unit(pairs)))
     }
 }
@@ -267,6 +271,3 @@ fn resolve_param(param_stack: &VecDeque<&Vec<Name>>, name: &str) -> Option<i32> 
     }
     None
 }
-
-#[derive(Debug)]
-pub struct CompileError(String);
