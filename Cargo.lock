@@ -493,6 +493,7 @@ name = "flourine-rs"
 version = "0.1.0"
 dependencies = [
  "iced",
+ "rustyline",
  "script",
 ]
 
@@ -1719,7 +1720,6 @@ version = "0.1.0"
 dependencies = [
  "pest",
  "pest_derive",
- "rustyline",
 ]
 
 [[package]]
