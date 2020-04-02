@@ -7,9 +7,12 @@ use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomType, Da
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::eval::Value::{NumberValue, StringValue, BoolValue, LambdaValue};
+use crate::codegen::fs::FsCodeGenerator;
+
 use std::ops::Not;
 use std::cmp::Ordering;
 use std::fmt::Formatter;
+use crate::codegen::PartialCodeGenerator;
 
 #[derive(Debug)]
 pub enum RuntimeError {
@@ -54,10 +57,12 @@ impl std::fmt::Display for Value {
             NumberValue(v) => write!(f, "{} :: Number", v),
             BoolValue(v) => write!(f, "{} :: Bool", v),
             StringValue(v) => write!(f, "{} :: String", v),
-            LambdaValue(argc, dbi, _) => {
-                let takes = argc - dbi;
-                write!(f, "<lambda-with-{}-{}>", takes,
-                       if takes == 1 { "arg" } else { "args" })
+            LambdaValue(argc, dbi, body) => {
+                let gen = FsCodeGenerator::new();
+                let code = gen.partial_codegen_expr(AtomExpr(AtomLambda(
+                    *argc, *dbi, body.clone(),
+                )));
+                write!(f, "{}", code)
             }
         }
     }

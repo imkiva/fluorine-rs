@@ -8,6 +8,12 @@ use std::ops::Range;
 
 pub struct FsCodeGenerator;
 
+impl FsCodeGenerator {
+    pub fn new() -> FsCodeGenerator {
+        FsCodeGenerator {}
+    }
+}
+
 impl StringOutputGenerator for FsCodeGenerator {}
 
 impl PartialCodeGenerator<String> for FsCodeGenerator {
