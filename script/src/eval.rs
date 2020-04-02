@@ -109,7 +109,6 @@ impl Eval for ProgramItem {
         match self {
             ExprItem(expr) => expr.eval_into(ctx),
             DeclItem(decl) => decl.eval_into(ctx),
-            _ => Ok(None),
         }
     }
 }
