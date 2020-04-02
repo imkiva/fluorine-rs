@@ -119,11 +119,11 @@ fn subst(dbi: i32, expr: Expr, replacement: &Expr) -> Expr {
         Expr::DBI(_) => expr,
 
         UnaryExpr(op, unary) =>
-            UnaryExpr(op.clone(), Box::new(subst(dbi, *unary.clone(), replacement))),
+            UnaryExpr(op.clone(), Box::new(optimize(subst(dbi, *unary.clone(), replacement)))),
 
         BinaryExpr(op, lhs, rhs) =>
-            BinaryExpr(op.clone(), Box::new(subst(dbi, *lhs.clone(), replacement)),
-                       Box::new(subst(dbi, *rhs.clone(), replacement))),
+            BinaryExpr(op.clone(), Box::new(optimize(subst(dbi, *lhs.clone(), replacement))),
+                       Box::new(optimize(subst(dbi, *rhs.clone(), replacement)))),
 
         AtomExpr(AtomLambda(ret_argc, ret_dbi, ret_body)) => {
             let new_body: Vec<Expr> = ret_body.into_iter()
@@ -133,8 +133,8 @@ fn subst(dbi: i32, expr: Expr, replacement: &Expr) -> Expr {
         }
 
         ApplyExpr(f, arg) =>
-            fold_apply(subst(dbi, *f.clone(), replacement),
-                       subst(dbi, *arg.clone(), replacement)),
+            fold_apply(optimize(subst(dbi, *f.clone(), replacement)),
+                       optimize(subst(dbi, *arg.clone(), replacement))),
 
         _ => expr,
     }
