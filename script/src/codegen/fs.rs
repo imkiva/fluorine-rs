@@ -48,7 +48,11 @@ impl<T: TargetFs> TargetFs for Vec<T> {
     fn codegen_to_fs(self: Self) -> String {
         self.into_iter()
             .map(|t| t.codegen_to_fs())
-            .fold(String::new(), |acc, t| acc + "\n" + t.as_str())
+            .fold(String::new(), |acc, t|
+                match acc.len() {
+                    0 => t,
+                    _ => acc + "\n" + t.as_str(),
+                })
     }
 }
 
