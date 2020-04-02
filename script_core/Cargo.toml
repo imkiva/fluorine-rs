@@ -1,5 +1,5 @@
 [package]
-name = "script"
+name = "script_core"
 version = "0.1.0"
 authors = ["imkiva <imkiva@icloud.com>"]
 edition = "2018"

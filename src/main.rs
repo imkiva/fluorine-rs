@@ -1,6 +1,6 @@
-use script::parser::FsParser;
-use script::parser::CompileError;
-use script::optimizer::Optimizer;
+use script_core::parser::FsParser;
+use script_core::parser::CompileError;
+use script_core::optimizer::Optimizer;
 
 pub fn main() {
     let t = FsParser::ast(
