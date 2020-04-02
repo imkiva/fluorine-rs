@@ -174,6 +174,7 @@ impl Eval for Expr {
                 }
             }
 
+            // TODO: apply function
             ApplyExpr(_, _) => Ok(None),
 
             DBI(_) => Err(DanglingDBI),
