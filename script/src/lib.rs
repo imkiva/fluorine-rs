@@ -8,3 +8,4 @@ pub mod parser;
 pub mod optimizer;
 pub mod tree;
 pub mod eval;
+pub mod codegen;
