@@ -125,7 +125,7 @@ fn subst(dbi: i32, expr: Expr, a: Expr) -> Expr {
             BinaryExpr(op.clone(), Box::new(subst(dbi, *lhs.clone(), a.clone())),
                        Box::new(subst(dbi, *rhs.clone(), a))),
 
-        AtomExpr(AtomLambda(ref ret_argc, ref ret_dbi, ref ret_body)) => {
+        AtomExpr(AtomLambda(ret_argc, ret_dbi, ret_body)) => {
             let new_body: Vec<Expr> = ret_body.into_iter()
                 .map(|ret_expr| optimize(subst(ret_argc + dbi, ret_expr.clone(), a.clone())))
                 .collect();
