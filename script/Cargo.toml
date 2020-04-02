@@ -1,5 +1,5 @@
 [package]
-name = "script_core"
+name = "script"
 version = "0.1.0"
 authors = ["imkiva <imkiva@icloud.com>"]
 edition = "2018"
@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 pest = "2.1.3"
 pest_derive = "2.1.0"
+rustyline = "6.0.0"
