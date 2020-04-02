@@ -96,11 +96,16 @@ impl<T: Eval> Eval for Box<T> {
 
 impl<T: Eval> Eval for Vec<T> {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
+        let mut results = Vec::new();
         for expr in self {
-            expr.eval_into(ctx)?;
+            results.push(expr.eval_into(ctx)?);
         }
 
-        Ok(None)
+        if let Some(r) = results.pop() {
+            Ok(r)
+        } else {
+            Ok(None)
+        }
     }
 }
 
