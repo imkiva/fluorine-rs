@@ -1,7 +1,8 @@
 pub type Name = String;
 
-type Argc = i32;
-type ApplyStartDBI = i32;
+pub type DBI = i32;
+pub type Argc = DBI;
+pub type ApplyStartDBI = DBI;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum Lit {
