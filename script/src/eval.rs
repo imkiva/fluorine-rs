@@ -137,6 +137,7 @@ impl Eval for Expr {
             }
 
             ApplyExpr(f, a) => Ok(None),
+
             DBI(_) => Err(DanglingDBI),
             _ => unreachable!("Internal Error"),
         }
