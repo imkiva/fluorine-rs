@@ -3,19 +3,33 @@ use crate::tree::{Atom, Program, Expr, Decl, ProgramItem, Lit, Name, Argc, Apply
 use crate::tree::ProgramItem::{ExprItem, DeclItem};
 use crate::tree::Decl::LetDecl;
 use crate::tree::Expr::{AtomExpr, DBI, UnaryExpr, BinaryExpr, ApplyExpr};
-use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomValue, DanglingDBI, DanglingRawLambda};
+use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomType, DanglingDBI, DanglingRawLambda};
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::eval::Value::{NumberValue, StringValue, BoolValue, LambdaValue};
 use std::ops::Not;
 use std::cmp::Ordering;
+use std::fmt::Formatter;
 
+#[derive(Debug)]
 pub enum RuntimeError {
     DanglingDBI,
     DanglingRawLambda,
     StackUnderflow,
     VariableNotFound(String),
-    BottomValue,
+    BottomType,
+}
+
+impl std::fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DanglingDBI => write!(f, "InternalError: detected dangling DBI outside lambda"),
+            DanglingRawLambda => write!(f, "InternalError: detected unresolved lambda"),
+            StackUnderflow => write!(f, "RuntimeError: stack underflow"),
+            VariableNotFound(id) => write!(f, "NameError: variable {} not found", id),
+            BottomType => write!(f, "RuntimeError: try to produce bottom typed value"),
+        }
+    }
 }
 
 pub struct Context {
@@ -32,6 +46,21 @@ pub enum Value {
     BoolValue(bool),
     StringValue(String),
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
+}
+
+impl std::fmt::Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NumberValue(v) => write!(f, "{} :: Number", v),
+            BoolValue(v) => write!(f, "{} :: Bool", v),
+            StringValue(v) => write!(f, "{} :: String", v),
+            LambdaValue(argc, dbi, _) => {
+                let takes = argc - dbi;
+                write!(f, "<lambda-with-{}-{}>", takes,
+                       if takes == 1 { "arg" } else { "args" })
+            }
+        }
+    }
 }
 
 impl std::cmp::PartialOrd for Value {
@@ -89,7 +118,7 @@ impl Eval for Decl {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
         match self {
             LetDecl(name, expr) => {
-                let value = expr.eval_into(ctx)?.ok_or(BottomValue)?;
+                let value = expr.eval_into(ctx)?.ok_or(BottomType)?;
                 ctx.put_var(name, value)?;
                 Ok(None)
             }
@@ -103,14 +132,14 @@ impl Eval for Expr {
             AtomExpr(atom) => atom.eval_into(ctx),
             UnaryExpr(op, operand) => match op.as_str() {
                 "!" => {
-                    let val = operand.eval_into(ctx)?.ok_or(BottomValue)?;
+                    let val = operand.eval_into(ctx)?.ok_or(BottomType)?;
                     Ok(val.not())
                 }
                 _ => unreachable!("Unexpected unary operator"),
             }
 
             BinaryExpr(op, lhs, rhs) => {
-                let l = lhs.eval_into(ctx)?.ok_or(BottomValue)?;
+                let l = lhs.eval_into(ctx)?.ok_or(BottomType)?;
                 // logical operators should be short-circuit
                 match op.as_str() {
                     "&&" => return Ok(None),
@@ -118,7 +147,7 @@ impl Eval for Expr {
                     _ => (),
                 };
 
-                let r = rhs.eval_into(ctx)?.ok_or(BottomValue)?;
+                let r = rhs.eval_into(ctx)?.ok_or(BottomType)?;
                 match op.as_str() {
                     "+" => Ok(l + r),
                     "-" => Ok(l - r),
@@ -136,7 +165,7 @@ impl Eval for Expr {
                 }
             }
 
-            ApplyExpr(f, a) => Ok(None),
+            ApplyExpr(_, _) => Ok(None),
 
             DBI(_) => Err(DanglingDBI),
             _ => unreachable!("Internal Error"),

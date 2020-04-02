@@ -2,23 +2,30 @@ use script::parser::FsParser;
 use script::parser::CompileError;
 use script::tree::Program;
 use script::optimizer::Optimizer;
+use script::eval::Context;
 
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
 pub(crate) fn cli_main() {
-    // `()` can be used when no completer is required
+    let mut ctx = Context::new();
     let mut rl = Editor::<()>::new();
+
     loop {
-        let readline = rl.readline("F> ");
+        let readline = rl.readline("Fs> ");
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
                 match compile_line(line.as_str()) {
-                    Ok(tree) => println!("{:#?}", tree),
+                    Ok(tree) => match ctx.source(tree) {
+                        Ok(Some(v)) => println!("{}", v),
+                        Ok(None) => (),
+                        Err(err) => eprintln!("{}", err),
+                    },
                     Err(CompileError(e)) => eprintln!("{}", e.with_path("<stdin>")),
                 }
             }
+
             Err(ReadlineError::Interrupted) => (),
             Err(ReadlineError::Eof) => {
                 break;
