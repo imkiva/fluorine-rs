@@ -7,6 +7,8 @@ use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomValue, D
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::eval::Value::{NumberValue, StringValue, BoolValue, LambdaValue};
+use std::ops::Not;
+use std::cmp::Ordering;
 
 pub enum RuntimeError {
     DanglingDBI,
@@ -30,6 +32,27 @@ pub enum Value {
     BoolValue(bool),
     StringValue(String),
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
+}
+
+impl std::cmp::PartialOrd for Value {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (NumberValue(lhs), NumberValue(rhs)) => lhs.partial_cmp(rhs),
+            (StringValue(lhs), StringValue(rhs)) => lhs.partial_cmp(rhs),
+            _ => None,
+        }
+    }
+}
+
+impl std::cmp::PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (NumberValue(lhs), NumberValue(rhs)) => lhs == rhs,
+            (BoolValue(lhs), BoolValue(rhs)) => lhs == rhs,
+            (StringValue(lhs), StringValue(rhs)) => lhs == rhs,
+            _ => false,
+        }
+    }
 }
 
 trait Eval {
@@ -78,9 +101,42 @@ impl Eval for Expr {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
         match self {
             AtomExpr(atom) => atom.eval_into(ctx),
-            UnaryExpr(_, _) => Ok(None),
-            BinaryExpr(_, _, _) => Ok(None),
-            ApplyExpr(_, _) => Ok(None),
+            UnaryExpr(op, operand) => match op.as_str() {
+                "!" => {
+                    let val = operand.eval_into(ctx)?.ok_or(BottomValue)?;
+                    Ok(val.not())
+                }
+                _ => unreachable!("Unexpected unary operator"),
+            }
+
+            BinaryExpr(op, lhs, rhs) => {
+                let l = lhs.eval_into(ctx)?.ok_or(BottomValue)?;
+                // logical operators should be short-circuit
+                match op.as_str() {
+                    "&&" => return Ok(None),
+                    "||" => return Ok(None),
+                    _ => (),
+                };
+
+                let r = rhs.eval_into(ctx)?.ok_or(BottomValue)?;
+                match op.as_str() {
+                    "+" => Ok(l + r),
+                    "-" => Ok(l - r),
+                    "*" => Ok(l * r),
+                    "/" => Ok(l / r),
+                    "%" => Ok(l % r),
+                    "^" => Ok(l.pow(r)),
+                    "==" => Ok(Some(BoolValue(l == r))),
+                    "!=" => Ok(Some(BoolValue(l != r))),
+                    ">" => Ok(Some(BoolValue(l > r))),
+                    ">=" => Ok(Some(BoolValue(l >= r))),
+                    "<" => Ok(Some(BoolValue(l < r))),
+                    "<=" => Ok(Some(BoolValue(l <= r))),
+                    _ => unreachable!("Unexpected binary operator"),
+                }
+            }
+
+            ApplyExpr(f, a) => Ok(None),
             DBI(_) => Err(DanglingDBI),
             _ => unreachable!("Internal Error"),
         }
@@ -104,6 +160,89 @@ impl Eval for Lit {
             LitNumber(l) => Ok(Some(NumberValue(l))),
             LitString(l) => Ok(Some(StringValue(l))),
             LitBool(l) => Ok(Some(BoolValue(l))),
+        }
+    }
+}
+
+impl std::ops::Add for Value {
+    type Output = Option<Value>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l + r)),
+            (StringValue(l), StringValue(r)) => Some(StringValue(l + r.as_str())),
+            _ => None,
+        }
+    }
+}
+
+impl std::ops::Sub for Value {
+    type Output = Option<Value>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l - r)),
+            _ => None,
+        }
+    }
+}
+
+impl std::ops::Mul for Value {
+    type Output = Option<Value>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l * r)),
+            _ => None,
+        }
+    }
+}
+
+impl std::ops::Div for Value {
+    type Output = Option<Value>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l / r)),
+            _ => None,
+        }
+    }
+}
+
+impl std::ops::Rem for Value {
+    type Output = Option<Value>;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l % r)),
+            _ => None,
+        }
+    }
+}
+
+impl std::ops::Not for Value {
+    type Output = Option<Value>;
+
+    fn not(self) -> Self::Output {
+        match self {
+            BoolValue(b) => Some(BoolValue(!b)),
+            _ => None,
+        }
+    }
+}
+
+trait Pow {
+    type Output;
+    fn pow(self, rhs: Self) -> Self::Output;
+}
+
+impl Pow for Value {
+    type Output = Option<Value>;
+
+    fn pow(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l.powf(r))),
+            _ => None,
         }
     }
 }
