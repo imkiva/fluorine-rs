@@ -134,7 +134,7 @@ fn subst(dbi: i32, expr: Expr, a: Expr) -> Expr {
 
         ApplyExpr(f, arg) =>
             fold_apply(subst(dbi, *f.clone(), a.clone()),
-                       subst(dbi, *arg.clone(), a.clone())),
+                       subst(dbi, *arg.clone(), a)),
 
         _ => expr,
     }
