@@ -20,7 +20,9 @@ pub fn main() {
                let fold3xx = { a -> { b -> { c -> { d -> a + a + b + c + c + d + a } } } }(5)(10)(15)\n\
                let fold4 = {a, b -> a + b}(100, 200)\n\
                let fold4x = {a, b, c, d, e, f, g -> a + b + c + d + e + f + g }(1, 2, 3, 4, 5, 6, 7)\n\
-               let fold5 = {a, b -> a + b}(100)\n"
+               let fold5 = {a, b -> a + b}(100)\n \
+               let fold6 = {a, b -> a + b}({a -> b})\n \
+               "
     ).unwrap_or_else(|e| {
         println!("{:#?}", e);
         Vec::new()

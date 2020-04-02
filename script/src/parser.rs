@@ -200,7 +200,8 @@ fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
             dbi_fuck_rustc(param_stack, names, body),
 
         ApplyExpr(f, a) =>
-            ApplyExpr(Box::new(dbi_lambda(param_stack, *f.clone())), a),
+            ApplyExpr(Box::new(dbi_lambda(param_stack, *f.clone())),
+                      Box::new(dbi_lambda(&mut VecDeque::new(), *a.clone()))),
 
         // not a lambda, just return what we have now
         _ => expr,
