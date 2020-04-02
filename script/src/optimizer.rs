@@ -27,7 +27,7 @@ fn optimize(expr: Expr) -> Expr {
             fold_binary(op, optimize(*lhs), optimize(*rhs)),
 
         ApplyExpr(f, a) =>
-            fold_apply(0, optimize(*f), optimize(*a), false),
+            fold_apply(optimize(*f), optimize(*a)),
 
         _ => expr
     }
@@ -83,16 +83,16 @@ fn fold_binary(op: String, lhs: Expr, rhs: Expr) -> Expr {
     }
 }
 
-fn fold_apply(start: i32, f: Expr, a: Expr, try_match: bool) -> Expr {
+fn fold_apply(f: Expr, a: Expr) -> Expr {
     match f {
         AtomExpr(AtomLambda(ref argc, ref dbi, ref body))
         if *dbi < *argc => {
             // the lambda still accepts argument
             let mut new_body: Vec<Expr> = body.into_iter()
-                .map(|expr| subst(*argc, start + *dbi, expr.clone(), a.clone()))
+                .map(|expr| subst(*dbi, expr.clone(), a.clone()))
                 .collect();
 
-            if !try_match && *dbi == *argc - 1 && new_body.len() == 1 {
+            if *dbi == *argc - 1 && new_body.len() == 1 {
                 // 1. full applied after subst
                 // 2. the lambda has only one expr in the body
                 // so we can inline it!
@@ -100,7 +100,7 @@ fn fold_apply(start: i32, f: Expr, a: Expr, try_match: bool) -> Expr {
             } else {
                 AtomExpr(AtomLambda(
                     *argc,
-                    if !try_match { *dbi + 1 } else { *dbi },
+                    *dbi + 1,
                     new_body,
                 ))
             }
@@ -109,28 +109,30 @@ fn fold_apply(start: i32, f: Expr, a: Expr, try_match: bool) -> Expr {
         AtomExpr(AtomLambda(_, _, _)) =>
             ApplyExpr(Box::new(f), Box::new(a)),
 
-        _ =>
-            if !try_match {
-                ApplyExpr(Box::new(f), Box::new(a))
-            } else {
-                f
-            },
+        _ => ApplyExpr(Box::new(f), Box::new(a))
     }
 }
 
-fn subst(argc: i32, dbi: i32, expr: Expr, a: Expr) -> Expr {
+fn subst(dbi: i32, expr: Expr, a: Expr) -> Expr {
     match &expr {
         Expr::DBI(i) if dbi == *i => a,
         Expr::DBI(_) => expr,
 
         UnaryExpr(op, unary) =>
-            UnaryExpr(op.clone(), Box::new(subst(argc, dbi, *unary.clone(), a))),
+            UnaryExpr(op.clone(), Box::new(subst(dbi, *unary.clone(), a))),
 
         BinaryExpr(op, lhs, rhs) =>
-            BinaryExpr(op.clone(), Box::new(subst(argc, dbi, *lhs.clone(), a.clone())),
-                       Box::new(subst(argc, dbi, *rhs.clone(), a))),
+            BinaryExpr(op.clone(), Box::new(subst(dbi, *lhs.clone(), a.clone())),
+                       Box::new(subst(dbi, *rhs.clone(), a))),
 
-        _ => fold_apply(argc, expr, a, true),
+        AtomExpr(AtomLambda(ref ret_argc, ref ret_dbi, ref ret_body)) => {
+            let new_body: Vec<Expr> = ret_body.into_iter()
+                .map(|ret_expr| optimize(subst(ret_argc + dbi, ret_expr.clone(), a.clone())))
+                .collect();
+            AtomExpr(AtomLambda(*ret_argc, *ret_dbi, new_body))
+        }
+
+        _ => expr,
     }
 }
 

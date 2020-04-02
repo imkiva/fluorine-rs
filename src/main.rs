@@ -16,10 +16,15 @@ pub fn main() {
                let ide = { a -> a }(10)\n \
                let fold2 = { n -> n + 2 }(1)\n \
                let fold3 = { n -> { a -> n + a } }(5)(10)\n\
+               let fold3x = { a -> { b -> { c -> { d -> a + a + b + c + c + d + a } } } }(5)(10)(15)(20)\n\
+               let fold3xx = { a -> { b -> { c -> { d -> a + a + b + c + c + d + a } } } }(5)(10)(15)\n\
                let fold4 = {a, b -> a + b}(100, 200)\n\
                let fold4x = {a, b, c, d, e, f, g -> a + b + c + d + e + f + g }(1, 2, 3, 4, 5, 6, 7)\n\
-               let fold5 = {a, b -> a + b}(100)"
-    ).unwrap();
+               let fold5 = {a, b -> a + b}(100)\n"
+    ).unwrap_or_else(|e| {
+        println!("{:#?}", e);
+        Vec::new()
+    });
 
     let o = Optimizer::run(t);
     println!("{:#?}", o);
