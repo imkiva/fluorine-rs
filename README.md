@@ -1,8 +1,8 @@
-fluorine-rs
-============
-
 ![Logo](logo/fluorine-logo.png)
 ![Rust](https://github.com/imkiva/fluorine-rs/workflows/Rust/badge.svg)
+
+fluorine-rs
+============
 
 Your interactive math.
 
