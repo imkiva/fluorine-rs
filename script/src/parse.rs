@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use pest::Parser;
 use pest::iterators::{Pair, Pairs};
 use pest::error::Error;
+use pest::error::ErrorVariant;
 use crate::tree::*;
 use crate::tree::ProgramItem::*;
 use crate::tree::Expr::*;
@@ -14,8 +15,11 @@ use crate::tree::Lit::*;
 #[grammar = "fs.pest"]
 pub struct FsParser;
 
+pub type ParseErrorVariant = ErrorVariant<Rule>;
+pub type ParseError = Error<Rule>;
+
 #[derive(Debug)]
-pub struct CompileError(pub Error<Rule>);
+pub struct CompileError(pub ParseError);
 
 impl FsParser {
     pub fn ast(input: &str) -> Result<Program, CompileError> {
