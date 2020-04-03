@@ -4,6 +4,7 @@ use crate::tree::Decl::LetDecl;
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Expr::{AtomExpr, UnaryExpr, BinaryExpr, ApplyExpr, DBI};
+use crate::subst::Substitution;
 
 pub struct FsCodeGenerator;
 
@@ -111,7 +112,7 @@ fn codegen_lambda(argc: i32, dbi: i32, body: Vec<Expr>) -> String {
                   params.push(name.clone());
                   let replacement = AtomExpr(AtomId(name));
                   (params, body.into_iter()
-                      .map(|expr| subst(dbi, expr, &replacement))
+                      .map(|expr| Substitution::subst(dbi, expr, &replacement))
                       .collect())
               });
 
@@ -122,31 +123,4 @@ fn codegen_raw_lambda(param: Vec<String>, body: Vec<Expr>) -> String {
     format!("{{ {} -> {} }}",
             param.join(", "),
             body.codegen_to_fs())
-}
-
-fn subst(dbi: i32, expr: Expr, replacement: &Expr) -> Expr {
-    match &expr {
-        DBI(i) if dbi == *i => replacement.clone(),
-        DBI(_) => expr,
-
-        UnaryExpr(op, unary) =>
-            UnaryExpr(op.clone(), Box::new(subst(dbi, *unary.clone(), replacement))),
-
-        BinaryExpr(op, lhs, rhs) =>
-            BinaryExpr(op.clone(), Box::new(subst(dbi, *lhs.clone(), replacement)),
-                       Box::new(subst(dbi, *rhs.clone(), replacement))),
-
-        AtomExpr(AtomLambda(ret_argc, ret_dbi, ret_body)) => {
-            let new_body: Vec<Expr> = ret_body.into_iter()
-                .map(|ret_expr| subst(ret_argc + dbi, ret_expr.clone(), replacement))
-                .collect();
-            AtomExpr(AtomLambda(*ret_argc, *ret_dbi, new_body))
-        }
-
-        ApplyExpr(f, arg) =>
-            ApplyExpr(Box::new(subst(dbi, *f.clone(), replacement)),
-                      Box::new(subst(dbi, *arg.clone(), replacement))),
-
-        _ => expr,
-    }
 }

@@ -3,6 +3,7 @@ extern crate pest;
 extern crate pest_derive;
 
 pub(crate) mod functor;
+pub(crate) mod subst;
 
 pub mod parser;
 pub mod optimizer;
