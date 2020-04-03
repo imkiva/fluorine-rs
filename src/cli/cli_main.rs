@@ -1,5 +1,5 @@
-use script::parser::FsParser;
-use script::parser::CompileError;
+use script::parse::FsParser;
+use script::parse::CompileError;
 use script::tree::Program;
 use script::optimize::{Optimizer, OptimizeLevel};
 use script::eval::Context;

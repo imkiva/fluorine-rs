@@ -6,7 +6,7 @@ pub(crate) mod functor;
 pub(crate) mod subst;
 pub(crate) mod pe;
 
-pub mod parser;
+pub mod parse;
 pub mod tree;
 pub mod eval;
 pub mod codegen;
