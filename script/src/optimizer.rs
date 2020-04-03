@@ -112,6 +112,8 @@ fn fold_apply(f: Expr, a: Expr) -> Expr {
     }
 }
 
+/// This is a specialized version of Subst::subst
+/// Consider reuse the standard version in the future.
 fn subst(dbi: i32, expr: Expr, replacement: &Expr) -> Expr {
     match &expr {
         Expr::DBI(i) if dbi == *i => replacement.clone(),
