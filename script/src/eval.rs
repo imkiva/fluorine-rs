@@ -32,7 +32,7 @@ impl std::fmt::Display for RuntimeError {
             DanglingRawLambda => write!(f, "InternalError: detected unresolved lambda"),
             StackUnderflow => write!(f, "RuntimeError: stack underflow"),
             VariableNotFound(id) => write!(f, "NameError: variable '{}' not found", id),
-            BottomType => write!(f, "RuntimeError: try to produce bottom typed value"),
+            BottomType => write!(f, "TypeError: try to produce bottom typed value"),
             NotApplicable => write!(f, "TypeError: not a lambda"),
         }
     }
