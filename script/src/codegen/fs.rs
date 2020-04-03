@@ -4,7 +4,7 @@ use crate::tree::Decl::LetDecl;
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Expr::{AtomExpr, UnaryExpr, BinaryExpr, ApplyExpr, DBI};
-use crate::subst::Substitution;
+use crate::subst::Subst;
 
 pub struct FsCodeGenerator;
 
@@ -112,7 +112,7 @@ fn codegen_lambda(argc: i32, dbi: i32, body: Vec<Expr>) -> String {
                   params.push(name.clone());
                   let replacement = AtomExpr(AtomId(name));
                   (params, body.into_iter()
-                      .map(|expr| Substitution::subst(dbi, expr, &replacement))
+                      .map(|expr| expr.subst(dbi, &replacement))
                       .collect())
               });
 

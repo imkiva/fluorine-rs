@@ -2,10 +2,9 @@ use crate::tree::Expr;
 use crate::tree::Expr::{DBI, UnaryExpr, BinaryExpr, AtomExpr, ApplyExpr};
 use crate::tree::Atom::AtomLambda;
 
-pub struct Substitution;
-
-trait Subst {
+pub trait Subst {
     type Output;
+
     fn subst(self: Self, dbi: i32, replacement: &Expr) -> Self::Output;
 }
 
@@ -54,11 +53,5 @@ impl Subst for Expr {
 
             _ => self,
         }
-    }
-}
-
-impl Substitution {
-    pub fn subst(dbi: i32, expr: Expr, replacement: &Expr) -> Expr {
-        expr.subst(dbi, replacement)
     }
 }
