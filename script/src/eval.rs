@@ -177,7 +177,6 @@ impl Eval for Expr {
                 }
             }
 
-            // TODO: apply function
             ApplyExpr(f, a) =>
                 eval_apply(ctx, *f, *a),
 
@@ -340,10 +339,15 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
     match f.eval_into(ctx)? {
         Some(LambdaValue(argc, dbi, body)) => {
             debug_assert_ne!(argc, dbi);
-            ctx.new_scope();
-            let result = body.subst(dbi, &a).eval_into(ctx)?;
-            ctx.pop_scope()?;
-            Ok(result)
+            let new_body = body.subst(dbi, &a);
+            if dbi + 1 == argc {
+                ctx.new_scope();
+                let result = new_body.eval_into(ctx)?;
+                ctx.pop_scope()?;
+                Ok(result)
+            } else {
+                Ok(Some(LambdaValue(argc, dbi + 1, new_body)))
+            }
         }
         Some(_) => Err(NotApplicable),
         None => Err(BottomTypedValue),
