@@ -42,10 +42,9 @@ impl Subst for Expr {
                 BinaryExpr(op.clone(), lhs.clone().subst(dbi, replacement),
                            rhs.clone().subst(dbi, replacement)),
 
-            AtomExpr(AtomLambda(nested_argc, nested_dbi, nested_body)) => {
+            AtomExpr(AtomLambda(nested_argc, nested_dbi, nested_body)) =>
                 AtomExpr(AtomLambda(*nested_argc, *nested_dbi,
-                                    nested_body.clone().subst(nested_argc + dbi, replacement)))
-            }
+                                    nested_body.clone().subst(nested_argc + dbi, replacement))),
 
             ApplyExpr(f, arg) =>
                 ApplyExpr(f.clone().subst(dbi, replacement),
