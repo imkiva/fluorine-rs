@@ -1,7 +1,7 @@
 use script::parser::FsParser;
 use script::parser::CompileError;
 use script::tree::Program;
-use script::optimizer::Optimizer;
+use script::pe::Optimizer;
 use script::eval::Context;
 
 use rustyline::error::ReadlineError;
