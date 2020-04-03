@@ -1,18 +1,19 @@
-use std::collections::{VecDeque, HashMap};
 use crate::tree::{Atom, Program, Expr, Decl, ProgramItem, Lit, Name, Argc, ApplyStartDBI};
 use crate::tree::ProgramItem::{ExprItem, DeclItem};
 use crate::tree::Decl::LetDecl;
 use crate::tree::Expr::{AtomExpr, DBI, UnaryExpr, BinaryExpr, ApplyExpr};
-use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomType, DanglingDBI, DanglingRawLambda};
+use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomType, DanglingDBI, DanglingRawLambda, NotApplicable};
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::eval::Value::{NumberValue, StringValue, BoolValue, LambdaValue};
 use crate::codegen::fs::FsCodeGenerator;
+use crate::codegen::PartialCodeGenerator;
+use crate::subst::Subst;
 
+use std::collections::{VecDeque, HashMap};
 use std::ops::Not;
 use std::cmp::Ordering;
 use std::fmt::Formatter;
-use crate::codegen::PartialCodeGenerator;
 
 #[derive(Debug)]
 pub enum RuntimeError {
@@ -20,6 +21,7 @@ pub enum RuntimeError {
     DanglingRawLambda,
     StackUnderflow,
     VariableNotFound(String),
+    NotApplicable,
     BottomType,
 }
 
@@ -31,6 +33,7 @@ impl std::fmt::Display for RuntimeError {
             StackUnderflow => write!(f, "RuntimeError: stack underflow"),
             VariableNotFound(id) => write!(f, "NameError: variable '{}' not found", id),
             BottomType => write!(f, "RuntimeError: try to produce bottom typed value"),
+            NotApplicable => write!(f, "TypeError: not a lambda"),
         }
     }
 }
@@ -176,7 +179,7 @@ impl Eval for Expr {
 
             // TODO: apply function
             ApplyExpr(f, a) =>
-                eval_apply(*f, *a),
+                eval_apply(ctx, *f, *a),
 
             DBI(_) => Err(DanglingDBI),
             _ => unreachable!("Internal Error"),
@@ -333,6 +336,13 @@ impl Scope {
     }
 }
 
-fn eval_apply(f: Expr, a: Expr) -> Result<Option<Value>, RuntimeError> {
-    Ok(None)
+fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, RuntimeError> {
+    match f.eval_into(ctx)? {
+        Some(LambdaValue(argc, dbi, body)) => {
+            debug_assert_ne!(argc, dbi);
+            body.subst(dbi, &a).eval_into(ctx)
+        }
+        Some(_) => Err(NotApplicable),
+        None => Err(BottomType),
+    }
 }
