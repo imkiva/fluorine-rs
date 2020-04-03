@@ -14,9 +14,7 @@ impl Optimizer {
         match level {
             OptimizeLevel::NONE => input,
             OptimizeLevel::NORMAL => input.partial_eval(),
-            OptimizeLevel::AGGRESSIVE => {
-                input.partial_eval()
-            },
+            OptimizeLevel::AGGRESSIVE => input.partial_eval(),
         }
     }
 }
