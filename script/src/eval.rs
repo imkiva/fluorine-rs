@@ -2,7 +2,7 @@ use crate::tree::{Atom, Program, Expr, Decl, ProgramItem, Lit, Name, Argc, Apply
 use crate::tree::ProgramItem::{ExprItem, DeclItem};
 use crate::tree::Decl::LetDecl;
 use crate::tree::Expr::{AtomExpr, DBI, UnaryExpr, BinaryExpr, ApplyExpr};
-use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomType, DanglingDBI, DanglingRawLambda, NotApplicable};
+use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomTypedValue, DanglingDBI, DanglingRawLambda, NotApplicable};
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::eval::Value::{NumberValue, StringValue, BoolValue, LambdaValue};
@@ -22,7 +22,7 @@ pub enum RuntimeError {
     StackUnderflow,
     VariableNotFound(String),
     NotApplicable,
-    BottomType,
+    BottomTypedValue,
 }
 
 impl std::fmt::Display for RuntimeError {
@@ -32,7 +32,7 @@ impl std::fmt::Display for RuntimeError {
             DanglingRawLambda => write!(f, "InternalError: detected unresolved lambda"),
             StackUnderflow => write!(f, "RuntimeError: stack underflow"),
             VariableNotFound(id) => write!(f, "NameError: variable '{}' not found", id),
-            BottomType => write!(f, "TypeError: try to produce bottom typed value"),
+            BottomTypedValue => write!(f, "TypeError: try to produce bottom typed value"),
             NotApplicable => write!(f, "TypeError: not a lambda"),
         }
     }
@@ -130,7 +130,7 @@ impl Eval for Decl {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
         match self {
             LetDecl(name, expr) => {
-                let value = expr.eval_into(ctx)?.ok_or(BottomType)?;
+                let value = expr.eval_into(ctx)?.ok_or(BottomTypedValue)?;
                 ctx.put_var(name, value)?;
                 Ok(None)
             }
@@ -144,14 +144,14 @@ impl Eval for Expr {
             AtomExpr(atom) => atom.eval_into(ctx),
             UnaryExpr(op, operand) => match op.as_str() {
                 "!" => {
-                    let val = operand.eval_into(ctx)?.ok_or(BottomType)?;
+                    let val = operand.eval_into(ctx)?.ok_or(BottomTypedValue)?;
                     Ok(val.not())
                 }
                 _ => unreachable!("Unexpected unary operator"),
             }
 
             BinaryExpr(op, lhs, rhs) => {
-                let l = lhs.eval_into(ctx)?.ok_or(BottomType)?;
+                let l = lhs.eval_into(ctx)?.ok_or(BottomTypedValue)?;
                 // logical operators should be short-circuit
                 match op.as_str() {
                     "&&" => return Ok(None),
@@ -159,7 +159,7 @@ impl Eval for Expr {
                     _ => (),
                 };
 
-                let r = rhs.eval_into(ctx)?.ok_or(BottomType)?;
+                let r = rhs.eval_into(ctx)?.ok_or(BottomTypedValue)?;
                 match op.as_str() {
                     "+" => Ok(l + r),
                     "-" => Ok(l - r),
@@ -346,6 +346,6 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
             Ok(result)
         }
         Some(_) => Err(NotApplicable),
-        None => Err(BottomType),
+        None => Err(BottomTypedValue),
     }
 }
