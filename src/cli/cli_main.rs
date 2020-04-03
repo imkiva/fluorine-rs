@@ -1,7 +1,7 @@
 use script::parser::FsParser;
 use script::parser::CompileError;
 use script::tree::Program;
-use script::pe::Optimizer;
+use script::optimize::{Optimizer, OptimizeLevel};
 use script::eval::Context;
 
 use rustyline::error::ReadlineError;
@@ -39,5 +39,6 @@ pub(crate) fn cli_main() {
 }
 
 fn compile_line(input: &str) -> Result<Program, CompileError> {
-    FsParser::ast(input).map(Optimizer::run)
+    FsParser::ast(input).map(|ast|
+        Optimizer::run(ast, OptimizeLevel::AGGRESSIVE))
 }

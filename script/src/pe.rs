@@ -4,14 +4,6 @@ use crate::tree::Expr::{UnaryExpr, BinaryExpr, ApplyExpr, AtomExpr};
 use crate::tree::Atom::{AtomLit, AtomLambda, AtomId};
 use crate::tree::Lit::{LitBool, LitNumber};
 
-pub struct Optimizer;
-
-impl Optimizer {
-    pub fn run(input: Program) -> Program {
-        input.partial_eval()
-    }
-}
-
 pub trait PEContext {
     fn try_resolve_constant(&self, name: &str) -> Option<Expr>;
 }
