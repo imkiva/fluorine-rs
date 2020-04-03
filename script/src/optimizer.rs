@@ -12,7 +12,6 @@ impl Optimizer {
             .map(|item| match item {
                 ExprItem(expr) => ExprItem(optimize(expr)),
                 DeclItem(decl) => DeclItem(optimize_decl(decl)),
-                _ => item,
             })
             .collect()
     }

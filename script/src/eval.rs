@@ -175,7 +175,8 @@ impl Eval for Expr {
             }
 
             // TODO: apply function
-            ApplyExpr(_, _) => Ok(None),
+            ApplyExpr(f, a) =>
+                eval_apply(*f, *a),
 
             DBI(_) => Err(DanglingDBI),
             _ => unreachable!("Internal Error"),
@@ -330,4 +331,8 @@ impl Scope {
             vars: Default::default(),
         }
     }
+}
+
+fn eval_apply(f: Expr, a: Expr) -> Result<Option<Value>, RuntimeError> {
+    Ok(None)
 }

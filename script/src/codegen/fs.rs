@@ -4,7 +4,6 @@ use crate::tree::Decl::LetDecl;
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Expr::{AtomExpr, UnaryExpr, BinaryExpr, ApplyExpr, DBI};
-use std::ops::Range;
 
 pub struct FsCodeGenerator;
 
@@ -89,7 +88,7 @@ impl TargetFs for Expr {
                 format!("{} {} {}", lhs.codegen_to_fs(), op, rhs.codegen_to_fs()),
             ApplyExpr(f, a) =>
                 format!("{}({})", f.codegen_to_fs(), a.codegen_to_fs()),
-            DBI(i) => unreachable!("dangling DBI outside lambda"),
+            DBI(_) => unreachable!("dangling DBI outside lambda"),
             _ => unreachable!("internal error expr"),
         }
     }
