@@ -191,7 +191,7 @@ impl Eval for Atom {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
         match self {
             AtomLit(lit) => lit.eval_into(ctx),
-            AtomId(id) => ctx.get_var(id).map(Some),
+            AtomId(id) => ctx.get_var(id.as_str()).map(Some),
             AtomLambda(argc, dbi, body) => Ok(Some(LambdaValue(argc, dbi, body))),
             AtomRawLambda(_, _) => Err(DanglingRawLambda),
         }
@@ -309,12 +309,12 @@ impl Context {
         Ok(())
     }
 
-    fn get_var(&mut self, name: Name) -> Result<Value, RuntimeError> {
+    fn get_var(&self, name: &str) -> Result<Value, RuntimeError> {
         self.stack.front()
             .ok_or(StackUnderflow)?
-            .vars.get(name.as_str())
+            .vars.get(name)
             .map(|v| v.clone())
-            .ok_or(VariableNotFound(name))
+            .ok_or(VariableNotFound(name.to_owned()))
     }
 
     fn new_scope(&mut self) {
@@ -325,6 +325,22 @@ impl Context {
         self.stack.pop_front()
             .ok_or(StackUnderflow)
             .map(|_| ())
+    }
+}
+
+impl PEContext for Context {
+    fn try_resolve_constant(&self, name: &str) -> Option<Expr> {
+        match self.get_var(name) {
+            Ok(NumberValue(n)) =>
+                Some(AtomExpr(AtomLit(LitNumber(n)))),
+            Ok(BoolValue(b)) =>
+                Some(AtomExpr(AtomLit(LitBool(b)))),
+            Ok(StringValue(s)) =>
+                Some(AtomExpr(AtomLit(LitString(s)))),
+            Ok(LambdaValue(argc, dbi, body)) =>
+                Some(AtomExpr(AtomLambda(argc, dbi, body))),
+            _ => None,
+        }
     }
 }
 
@@ -340,7 +356,7 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
     match f.eval_into(ctx)? {
         Some(LambdaValue(argc, dbi, body)) => {
             debug_assert_ne!(argc, dbi);
-            let new_body = body.subst(dbi, &a);
+            let new_body = body.subst(dbi, &a).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
                 ctx.new_scope();
                 let result = new_body.eval_into(ctx)?;
