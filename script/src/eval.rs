@@ -340,7 +340,10 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
     match f.eval_into(ctx)? {
         Some(LambdaValue(argc, dbi, body)) => {
             debug_assert_ne!(argc, dbi);
-            body.subst(dbi, &a).eval_into(ctx)
+            ctx.new_scope();
+            let result = body.subst(dbi, &a).eval_into(ctx)?;
+            ctx.pop_scope()?;
+            Ok(result)
         }
         Some(_) => Err(NotApplicable),
         None => Err(BottomType),
