@@ -28,7 +28,11 @@ impl<T> CodeGenerator for T where
                 ProgramItem::ExprItem(expr) => self.partial_codegen_expr(expr),
                 ProgramItem::DeclItem(decl) => self.partial_codegen_decl(decl),
             })
-            .fold(String::new(), |acc, s| acc + "\n" + s.as_str())
+            .fold(String::new(), |acc, t|
+                match acc.len() {
+                    0 => t,
+                    _ => acc + "\n" + t.as_str(),
+                })
     }
 }
 
