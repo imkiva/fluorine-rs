@@ -9,6 +9,7 @@ use crate::eval::Value::{NumberValue, StringValue, BoolValue, LambdaValue};
 use crate::codegen::fs::FsCodeGenerator;
 use crate::codegen::PartialCodeGenerator;
 use crate::subst::Subst;
+use crate::pe::{PartialEval, PEContext};
 
 use std::collections::{VecDeque, HashMap};
 use std::ops::Not;

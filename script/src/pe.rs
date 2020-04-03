@@ -12,7 +12,7 @@ impl Optimizer {
     }
 }
 
-pub trait EvalContext {
+pub trait PEContext {
     fn try_resolve_constant(&self, name: &str) -> Option<Expr>;
 }
 
@@ -23,13 +23,13 @@ pub trait PartialEval where Self: std::marker::Sized {
         self.partial_eval_with(None)
     }
 
-    fn partial_eval_with(self, ctx: Option<&dyn EvalContext>) -> Self::Output;
+    fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output;
 }
 
 impl<T: PartialEval<Output=T>> PartialEval for Box<T> {
     type Output = Box<T>;
 
-    fn partial_eval_with(self: Self, ctx: Option<&dyn EvalContext>) -> Self::Output {
+    fn partial_eval_with(self: Self, ctx: Option<&dyn PEContext>) -> Self::Output {
         Box::new((*self).partial_eval_with(ctx))
     }
 }
@@ -37,7 +37,7 @@ impl<T: PartialEval<Output=T>> PartialEval for Box<T> {
 impl<T: PartialEval<Output=T>> PartialEval for Vec<T> {
     type Output = Vec<T>;
 
-    fn partial_eval_with(self, ctx: Option<&dyn EvalContext>) -> Self::Output {
+    fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
         self.into_iter()
             .map(|t| t.partial_eval_with(ctx))
             .collect()
@@ -47,7 +47,7 @@ impl<T: PartialEval<Output=T>> PartialEval for Vec<T> {
 impl PartialEval for ProgramItem {
     type Output = ProgramItem;
 
-    fn partial_eval_with(self, ctx: Option<&dyn EvalContext>) -> Self::Output {
+    fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
         match self {
             ExprItem(expr) => ExprItem(expr.partial_eval_with(ctx)),
             DeclItem(decl) => DeclItem(decl.partial_eval_with(ctx)),
@@ -58,7 +58,7 @@ impl PartialEval for ProgramItem {
 impl PartialEval for Decl {
     type Output = Decl;
 
-    fn partial_eval_with(self, ctx: Option<&dyn EvalContext>) -> Self::Output {
+    fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
         match self {
             Decl::LetDecl(name, expr) => Decl::LetDecl(name, expr.partial_eval_with(ctx)),
         }
@@ -68,7 +68,7 @@ impl PartialEval for Decl {
 impl PartialEval for Expr {
     type Output = Expr;
 
-    fn partial_eval_with(self, ctx: Option<&dyn EvalContext>) -> Self::Output {
+    fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
         match self {
             AtomExpr(atom) => atom.partial_eval_with(ctx),
 
@@ -89,7 +89,7 @@ impl PartialEval for Expr {
 impl PartialEval for Atom {
     type Output = Expr;
 
-    fn partial_eval_with(self, ctx: Option<&dyn EvalContext>) -> Self::Output {
+    fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
         match &self {
             AtomId(id) => {
                 match ctx.map(|c| c.try_resolve_constant(id)) {
@@ -102,7 +102,7 @@ impl PartialEval for Atom {
     }
 }
 
-fn fold_unary(op: String, operand: Expr, _: Option<&dyn EvalContext>) -> Expr {
+fn fold_unary(op: String, operand: Expr, _: Option<&dyn PEContext>) -> Expr {
     match (op.as_str(), &operand) {
         ("!", AtomExpr(AtomLit(LitBool(b)))) =>
             AtomExpr(AtomLit(LitBool(!*b))),
@@ -110,7 +110,7 @@ fn fold_unary(op: String, operand: Expr, _: Option<&dyn EvalContext>) -> Expr {
     }
 }
 
-fn fold_binary(op: String, lhs: Expr, rhs: Expr, _: Option<&dyn EvalContext>) -> Expr {
+fn fold_binary(op: String, lhs: Expr, rhs: Expr, _: Option<&dyn PEContext>) -> Expr {
     match (op.as_str(), &lhs, &rhs) {
         ("&&", AtomExpr(AtomLit(LitBool(false))), _) => AtomExpr(AtomLit(LitBool(false))),
         ("&&", AtomExpr(AtomLit(LitBool(true))), _) => rhs,
@@ -152,7 +152,7 @@ fn fold_binary(op: String, lhs: Expr, rhs: Expr, _: Option<&dyn EvalContext>) ->
     }
 }
 
-fn fold_apply(f: Expr, a: Expr, ctx: Option<&dyn EvalContext>) -> Expr {
+fn fold_apply(f: Expr, a: Expr, ctx: Option<&dyn PEContext>) -> Expr {
     match f {
         AtomExpr(AtomLambda(ref argc, ref dbi, ref body))
         if *dbi < *argc => {
@@ -184,7 +184,7 @@ fn fold_apply(f: Expr, a: Expr, ctx: Option<&dyn EvalContext>) -> Expr {
 
 /// This is a specialized version of Subst::subst
 /// Consider reuse the standard version in the future.
-fn subst(dbi: i32, expr: Expr, replacement: &Expr, ctx: Option<&dyn EvalContext>) -> Expr {
+fn subst(dbi: i32, expr: Expr, replacement: &Expr, ctx: Option<&dyn PEContext>) -> Expr {
     match &expr {
         Expr::DBI(i) if dbi == *i => replacement.clone(),
         Expr::DBI(_) => expr,
