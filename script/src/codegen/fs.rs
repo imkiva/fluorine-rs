@@ -1,4 +1,4 @@
-use crate::codegen::{PartialCodeGenerator, StringOutputGenerator};
+use crate::codegen::PartialCodeGenerator;
 use crate::tree::{Expr, Decl, Atom, Lit};
 use crate::tree::Decl::LetDecl;
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
@@ -14,9 +14,9 @@ impl FsCodeGenerator {
     }
 }
 
-impl StringOutputGenerator for FsCodeGenerator {}
+impl PartialCodeGenerator for FsCodeGenerator {
+    type Output = String;
 
-impl PartialCodeGenerator<String> for FsCodeGenerator {
     fn partial_codegen_decl(&self, decl: Decl) -> String {
         decl.codegen_to_fs()
     }

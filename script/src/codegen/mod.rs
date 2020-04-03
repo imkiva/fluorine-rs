@@ -1,23 +1,27 @@
 use crate::tree::{Program, Decl, Expr, Atom, ProgramItem, Lit};
 
-pub trait StringOutputGenerator {}
+pub trait CodeGenerator {
+    type Output;
 
-pub trait CodeGenerator<Output> {
-    fn codegen(&self, input: Program) -> Output;
+    fn codegen(&self, input: Program) -> Self::Output;
 }
 
-pub trait PartialCodeGenerator<Output> {
-    fn partial_codegen_decl(&self, _: Decl) -> Output;
+pub trait PartialCodeGenerator {
+    type Output;
 
-    fn partial_codegen_expr(&self, _: Expr) -> Output;
+    fn partial_codegen_decl(&self, _: Decl) -> Self::Output;
 
-    fn partial_codegen_atom(&self, _: Atom) -> Output;
+    fn partial_codegen_expr(&self, _: Expr) -> Self::Output;
 
-    fn partial_codegen_lit(&self, _: Lit) -> Output;
+    fn partial_codegen_atom(&self, _: Atom) -> Self::Output;
+
+    fn partial_codegen_lit(&self, _: Lit) -> Self::Output;
 }
 
-impl<T> CodeGenerator<String> for T where
-    T: StringOutputGenerator + PartialCodeGenerator<String> {
+impl<T> CodeGenerator for T where
+    T: PartialCodeGenerator<Output=String> {
+    type Output = String;
+
     fn codegen(&self, input: Program) -> String {
         input.into_iter()
             .map(|item| match item {
