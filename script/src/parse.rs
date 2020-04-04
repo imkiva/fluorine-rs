@@ -107,7 +107,7 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
     let first = nodes.pop_front().unwrap();
     match first.as_rule() {
         Rule::unary_op => {
-            assert_eq!(nodes.len(), 2);
+            assert_eq!(nodes.len(), 1);
             let operand = parse_expr_unary(nodes.pop_back().unwrap());
             UnaryExpr(first.as_str().trim().to_owned(),
                       Box::new(operand))
