@@ -356,9 +356,9 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
     match f.eval_into(ctx)? {
         Some(LambdaValue(argc, dbi, body)) => {
             debug_assert_ne!(argc, dbi);
-            /// XXX: should we check whether a evals to be a value?
-            /// partial_eval_with() will eval a into a value, but it
-            /// will not throw an error when a doesn't not exists.
+            // XXX: should we check whether a evals to be a value?
+            // partial_eval_with() will eval a into a value, but it
+            // will not throw an error when a doesn't not exists.
             let new_body = body.subst(dbi, &a).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
                 ctx.new_scope();
