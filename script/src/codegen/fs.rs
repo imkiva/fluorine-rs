@@ -1,9 +1,9 @@
 use crate::codegen::PartialCodeGenerator;
-use crate::tree::{Expr, Decl, Atom, Lit};
+use crate::tree::{Expr, Decl, Atom, Lit, MatchCase, Pattern};
 use crate::tree::Decl::LetDecl;
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
-use crate::tree::Expr::{AtomExpr, UnaryExpr, BinaryExpr, ApplyExpr, DBI};
+use crate::tree::Expr::{AtomExpr, UnaryExpr, BinaryExpr, ApplyExpr, DBI, MatchExpr};
 use crate::subst::Subst;
 
 pub struct FsCodeGenerator;
@@ -56,6 +56,23 @@ impl<T: TargetFs> TargetFs for Vec<T> {
     }
 }
 
+impl TargetFs for MatchCase {
+    fn codegen_to_fs(self: Self) -> String {
+        format!("{} => {}",
+                self.0.codegen_to_fs(),
+                self.1.codegen_to_fs())
+    }
+}
+
+impl TargetFs for Pattern {
+    fn codegen_to_fs(self: Self) -> String {
+        match self {
+            Pattern::PatternLit(lit) => lit.codegen_to_fs(),
+            Pattern::PatternWildcard => format!("_"),
+        }
+    }
+}
+
 impl TargetFs for Lit {
     fn codegen_to_fs(self: Self) -> String {
         match self {
@@ -89,6 +106,10 @@ impl TargetFs for Expr {
                 format!("{} {} {}", lhs.codegen_to_fs(), op, rhs.codegen_to_fs()),
             ApplyExpr(f, a) =>
                 format!("{}({})", f.codegen_to_fs(), a.codegen_to_fs()),
+            MatchExpr(matchee, cases) =>
+                format!("match {} {{\n{}\n}}",
+                        matchee.codegen_to_fs(),
+                        cases.codegen_to_fs()),
             DBI(_) => unreachable!("dangling DBI outside lambda"),
             _ => unreachable!("internal error expr"),
         }

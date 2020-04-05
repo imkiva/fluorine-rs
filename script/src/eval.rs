@@ -1,15 +1,16 @@
-use crate::tree::{Atom, Program, Expr, Decl, ProgramItem, Lit, Name, Argc, ApplyStartDBI};
+use crate::tree::{Atom, Program, Expr, Decl, ProgramItem, Lit, Name, Argc, ApplyStartDBI, MatchCase};
 use crate::tree::ProgramItem::{ExprItem, DeclItem};
 use crate::tree::Decl::LetDecl;
-use crate::tree::Expr::{AtomExpr, DBI, UnaryExpr, BinaryExpr, ApplyExpr};
-use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomTypedValue, DanglingDBI, DanglingRawLambda, NotApplicable};
+use crate::tree::Expr::{AtomExpr, DBI, UnaryExpr, BinaryExpr, ApplyExpr, MatchExpr};
 use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
 use crate::tree::Lit::{LitNumber, LitString, LitBool};
 use crate::eval::Value::{NumberValue, StringValue, BoolValue, LambdaValue};
+use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomTypedValue, DanglingDBI, DanglingRawLambda, NotApplicable, NonExhaustive};
 use crate::codegen::fs::FsCodeGenerator;
 use crate::codegen::PartialCodeGenerator;
 use crate::subst::Subst;
 use crate::pe::{PartialEval, PEContext};
+use crate::pattern::Matcher;
 
 use std::collections::{VecDeque, HashMap};
 use std::ops::Not;
@@ -23,6 +24,7 @@ pub enum RuntimeError {
     StackUnderflow,
     VariableNotFound(String),
     NotApplicable,
+    NonExhaustive,
     BottomTypedValue,
 }
 
@@ -35,6 +37,7 @@ impl std::fmt::Display for RuntimeError {
             VariableNotFound(id) => write!(f, "NameError: variable '{}' not found", id),
             BottomTypedValue => write!(f, "TypeError: try to produce bottom typed value"),
             NotApplicable => write!(f, "TypeError: not a lambda"),
+            NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
         }
     }
 }
@@ -93,7 +96,7 @@ impl std::cmp::PartialEq for Value {
     }
 }
 
-trait Eval {
+pub(crate) trait Eval {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError>;
 }
 
@@ -180,6 +183,9 @@ impl Eval for Expr {
 
             ApplyExpr(f, a) =>
                 eval_apply(ctx, *f, *a),
+
+            MatchExpr(expr, cases) =>
+                eval_match(ctx, *expr, cases),
 
             DBI(_) => Err(DanglingDBI),
             _ => unreachable!("Internal Error"),
@@ -371,5 +377,15 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
         }
         Some(_) => Err(NotApplicable),
         None => Err(BottomTypedValue),
+    }
+}
+
+fn eval_match(ctx: &mut Context, matchee: Expr, cases: Vec<MatchCase>)
+              -> Result<Option<Value>, RuntimeError> {
+    let value = matchee.eval_into(ctx)?.ok_or(BottomTypedValue)?;
+
+    match cases.try_match(&value) {
+        Some((_, result)) => result.eval_into(ctx),
+        _ => Err(NonExhaustive),
     }
 }
