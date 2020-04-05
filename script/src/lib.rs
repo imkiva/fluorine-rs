@@ -11,3 +11,5 @@ pub mod tree;
 pub mod eval;
 pub mod codegen;
 pub mod optimize;
+
+mod tests;

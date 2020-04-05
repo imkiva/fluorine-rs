@@ -10,6 +10,7 @@ use crate::tree::Expr::*;
 use crate::tree::Atom::*;
 use crate::tree::Decl::*;
 use crate::tree::Lit::*;
+use crate::tree::Pattern::{PatternWildcard, PatternLit};
 
 #[derive(Parser)]
 #[grammar = "fs.pest"]
@@ -129,8 +130,9 @@ fn parse_expr_atom(node: Pair<Rule>) -> Expr {
     match child.as_rule() {
         Rule::expr => parse_expr(child),
         Rule::expr_lambda => parse_lambda(child),
+        Rule::expr_match => parse_match(child),
         Rule::id => AtomExpr(AtomId(child.as_str().to_owned())),
-        Rule::literal => parse_literal(child),
+        Rule::literal => AtomExpr(AtomLit(parse_lit(child))),
         _ => unreachable!("expr primary inner should be expr_quoted, expr_lambda, id or literal"),
     }
 }
@@ -170,28 +172,54 @@ fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
     AtomExpr(lam)
 }
 
+fn parse_match(node: Pair<Rule>) -> Expr {
+    let mut iter = node.into_inner().into_iter();
+
+    let match_expr_node = iter.next().unwrap();
+    let match_expr = parse_expr(match_expr_node);
+
+    MatchExpr(Box::new(match_expr),
+              parse_match_case(iter))
+}
+
+fn parse_match_case(match_cases: Pairs<Rule>) -> Vec<MatchCase> {
+    match_cases.into_iter().map(|case| {
+        let mut iter = case.into_inner();
+        let pattern = iter.next().unwrap();
+        let result = iter.next().unwrap();
+        MatchCase(parse_pattern(pattern), parse_expr(result))
+    }).collect()
+}
+
+fn parse_pattern(pat: Pair<Rule>) -> Pattern {
+    match pat.into_inner().next() {
+        Some(non_wildcard) => match non_wildcard.as_rule() {
+            Rule::literal => PatternLit(parse_lit(non_wildcard)),
+            _ => unreachable!("internal error: invalid pattern")
+        },
+        _ => PatternWildcard,
+    }
+}
+
 fn parse_expr_list(node: Pair<Rule>) -> Vec<Expr> {
     node.into_inner().into_iter()
         .map(|expr| parse_expr(expr))
         .collect()
 }
 
-fn parse_literal(node: Pair<Rule>) -> Expr {
-    let lit = node.into_inner().next().unwrap();
-
-    AtomExpr(AtomLit(
-        match lit.as_rule() {
-            Rule::number_lit => LitNumber(lit.as_str().parse::<f64>().unwrap()),
-            Rule::string_lit => LitString(lit.as_str().to_owned()),
-            Rule::bool_lit => LitBool(lit.as_str().parse::<bool>().unwrap()),
-            _ => unreachable!("unsupported literal type: {:?}", lit.as_rule()),
-        }
-    ))
+fn parse_lit(lit: Pair<Rule>) -> Lit {
+    let lit = lit.into_inner().next().unwrap();
+    match lit.as_rule() {
+        Rule::number_lit => LitNumber(lit.as_str().parse::<f64>().unwrap()),
+        Rule::string_lit => LitString(lit.as_str().to_owned()),
+        Rule::bool_lit => LitBool(lit.as_str().parse::<bool>().unwrap()),
+        _ => unreachable!("unsupported literal type: {:?}", lit.as_rule()),
+    }
 }
 
 fn parse_decl(node: Pair<Rule>) -> Decl {
     let mut id = "";
-    let mut expr = _InternalError;
+    let mut expr = _BottomExpr;
     for child in node.into_inner() {
         match child.as_rule() {
             Rule::id => id = child.as_str(),

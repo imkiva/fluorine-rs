@@ -21,13 +21,23 @@ pub enum Atom {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    _InternalError,
+    _BottomExpr,
 
     AtomExpr(Atom),
     DBI(i32),
     UnaryExpr(String, Box<Expr>),
     BinaryExpr(String, Box<Expr>, Box<Expr>),
     ApplyExpr(Box<Expr>, Box<Expr>),
+    MatchExpr(Box<Expr>, Vec<MatchCase>),
+}
+
+#[derive(Debug, Clone)]
+pub struct MatchCase(pub Pattern, pub Expr);
+
+#[derive(Debug, Clone)]
+pub enum Pattern {
+    PatternLit(Lit),
+    PatternWildcard,
 }
 
 #[derive(Debug)]
