@@ -1,5 +1,5 @@
-use crate::tree::Expr;
-use crate::tree::Expr::{DBI, UnaryExpr, BinaryExpr, AtomExpr, ApplyExpr};
+use crate::tree::{Expr, MatchCase};
+use crate::tree::Expr::{DBI, UnaryExpr, BinaryExpr, AtomExpr, ApplyExpr, MatchExpr};
 use crate::tree::Atom::AtomLambda;
 
 pub trait Subst {
@@ -27,6 +27,14 @@ impl<T: Subst<Output=T>> Subst for Vec<T> {
     }
 }
 
+impl Subst for MatchCase {
+    type Output = MatchCase;
+
+    fn subst(self: Self, dbi: i32, replacement: &Expr) -> Self::Output {
+        MatchCase(self.0, self.1.subst(dbi, replacement))
+    }
+}
+
 impl Subst for Expr {
     type Output = Expr;
 
@@ -49,6 +57,10 @@ impl Subst for Expr {
             ApplyExpr(f, arg) =>
                 ApplyExpr(f.clone().subst(dbi, replacement),
                           arg.clone().subst(dbi, replacement)),
+
+            MatchExpr(matchee, cases) =>
+                MatchExpr(matchee.clone().subst(dbi, replacement),
+                          cases.clone().subst(dbi, replacement)),
 
             _ => self,
         }

@@ -234,7 +234,7 @@ fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
     match expr {
         // if this is a unsolved lambda
         AtomExpr(AtomRawLambda(names, body)) =>
-            dbi_fuck_rustc(param_stack, names, body),
+            dbi_lambda_body(param_stack, names, body),
 
         ApplyExpr(f, a) =>
             ApplyExpr(Box::new(dbi_lambda(param_stack, *f.clone())),
@@ -245,7 +245,7 @@ fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
     }
 }
 
-fn dbi_fuck_rustc(param_stack: &mut VecDeque<&Vec<Name>>, names: Vec<Name>, body: Vec<Expr>) -> Expr {
+fn dbi_lambda_body(param_stack: &mut VecDeque<&Vec<Name>>, names: Vec<Name>, body: Vec<Expr>) -> Expr {
     // I know what I am doing!
     unsafe {
         // This is totally SAFE!!!!
@@ -287,6 +287,13 @@ fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
         ApplyExpr(f, a) =>
             ApplyExpr(Box::new(dbi_expr(param_stack, *f.clone())),
                       Box::new(dbi_expr(param_stack, *a.clone()))),
+
+        MatchExpr(matchee, cases) =>
+            MatchExpr(Box::new(dbi_expr(param_stack, *matchee.clone())),
+                      cases.into_iter()
+                          .map(|MatchCase(pat, expr)| {
+                              MatchCase(pat.clone(), dbi_expr(param_stack, expr.clone()))
+                          }).collect()),
 
         // try match nested lambda
         _ => dbi_lambda(param_stack, expr),

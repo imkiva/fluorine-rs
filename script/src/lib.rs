@@ -5,6 +5,7 @@ extern crate pest_derive;
 pub(crate) mod functor;
 pub(crate) mod subst;
 pub(crate) mod pe;
+pub(crate) mod pattern;
 
 pub mod parse;
 pub mod tree;
