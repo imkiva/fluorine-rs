@@ -205,6 +205,8 @@ fn subst(dbi: i32, expr: Expr, replacement: &Expr, ctx: Option<&dyn PEContext>) 
                        subst(dbi, *arg.clone(), replacement, ctx).partial_eval_with(ctx),
                        ctx),
 
+        // TODO: partial evaluation MatchExpr
+
         _ => expr,
     }
 }
