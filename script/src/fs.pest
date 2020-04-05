@@ -36,6 +36,7 @@ expr_unary = { unary_op ~ expr_unary
 
 expr_atom = { "(" ~ expr ~ ")"
             | expr_lambda
+            | expr_match
             | literal
             | id
             }
@@ -51,6 +52,12 @@ quick_lambda_ops = _ { logical_op | relational_op | level1_op | level2_op | leve
 expr_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
 
 param = { id ~ ("," ~ id)* }
+
+expr_match = { "match" ~ expr ~ "{" ~ match_case+ ~ "}" }
+
+match_case = { pattern ~ "=>" ~ expr ~ ","? }
+
+pattern = { literal }
 
 literal = { number_lit
           | bool_lit
