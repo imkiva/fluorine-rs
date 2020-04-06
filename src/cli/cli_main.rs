@@ -10,14 +10,29 @@ use rustyline::Editor;
 struct REPL {
     context: Context,
     rl: Editor<()>,
+    history_file: Option<String>,
 }
 
 impl REPL {
     fn new() -> REPL {
-        REPL {
+        let history_file = dirs::home_dir()
+            .map(|mut path| {
+                path.push(".fs-history");
+                path.to_str().map(|s| s.to_owned())
+            })
+            .flatten();
+
+        let mut repl = REPL {
             context: Context::new(),
             rl: Editor::<()>::new(),
+            history_file,
+        };
+
+        if let Some(ref path) = repl.history_file {
+            let _ = repl.rl.load_history(path);
         }
+
+        repl
     }
 
     fn start(&mut self) {
@@ -52,6 +67,14 @@ impl REPL {
         FsParser::ast(input).map(
             |ast| Optimizer::run(ast,
                                  OptimizeLevel::AGGRESSIVE))
+    }
+}
+
+impl Drop for REPL {
+    fn drop(&mut self) {
+        if let Some(ref path) = self.history_file {
+            let _ = self.rl.save_history(path);
+        }
     }
 }
 
