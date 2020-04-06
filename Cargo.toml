@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 script = { path = 'script' }
-iced = "0.1.0"
+clap = "2.33.0"
 rustyline = "6.0.0"
 
 [[bin]]
