@@ -41,14 +41,8 @@ impl REPL {
             match readline {
                 Ok(line) => {
                     self.rl.add_history_entry(line.as_str());
-                    match self.compile_line(line.as_str()) {
-                        Ok(tree) => match self.context.source(tree) {
-                            Ok(Some(v)) => println!("{}", v),
-                            Ok(None) => (),
-                            Err(err) => eprintln!("{}", err),
-                        },
-                        Err(CompileError(e)) => eprintln!("{}", e.with_path("<stdin>")),
-                    }
+                    compile_and_run(&mut self.context,
+                                    "<stdin>", line.as_str());
                 }
 
                 Err(ReadlineError::Interrupted) => (),
@@ -62,12 +56,6 @@ impl REPL {
             }
         }
     }
-
-    fn compile_line(&mut self, input: &str) -> Result<Program, CompileError> {
-        FsParser::ast(input).map(
-            |ast| Optimizer::run(ast,
-                                 OptimizeLevel::AGGRESSIVE))
-    }
 }
 
 impl Drop for REPL {
@@ -78,7 +66,30 @@ impl Drop for REPL {
     }
 }
 
-pub(crate) fn cli_main() {
-    let mut repl = REPL::new();
-    repl.start();
+fn compile(input: &str) -> Result<Program, CompileError> {
+    FsParser::ast(input).map(
+        |ast| Optimizer::run(ast,
+                             OptimizeLevel::AGGRESSIVE))
+}
+
+fn compile_and_run(ctx: &mut Context, file: &str, input: &str) {
+    match compile(input) {
+        Ok(tree) => match ctx.source(tree) {
+            Ok(Some(v)) => println!("{}", v),
+            Ok(None) => (),
+            Err(err) => eprintln!("{}", err),
+        },
+        Err(CompileError(e)) => eprintln!("{}", e.with_path(file)),
+    }
+}
+
+pub(crate) fn cli_main(input: Option<String>) {
+    if let Some(input) = input {
+        let src = std::fs::read_to_string(input.as_str()).expect("unable to open file");
+        let mut ctx = Context::new();
+        compile_and_run(&mut ctx, input.as_str(), src.as_str());
+    } else {
+        let mut repl = REPL::new();
+        repl.start();
+    }
 }
