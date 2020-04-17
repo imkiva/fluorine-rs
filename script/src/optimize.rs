@@ -7,18 +7,21 @@ use std::collections::HashMap;
 
 pub struct Optimizer;
 
+#[derive(Clone)]
 pub enum OptimizeLevel {
-    NONE,
-    NORMAL,
-    AGGRESSIVE,
+    Disabled,
+    Normal,
+    Aggressive,
+    JustDoIt,
 }
 
 impl Optimizer {
     pub fn run(input: Program, level: OptimizeLevel) -> Program {
         match level {
-            OptimizeLevel::NONE => input,
-            OptimizeLevel::NORMAL => input.partial_eval(),
-            OptimizeLevel::AGGRESSIVE => {
+            OptimizeLevel::Disabled => input,
+            OptimizeLevel::Normal => input.partial_eval(),
+            OptimizeLevel::JustDoIt |
+            OptimizeLevel::Aggressive => {
                 let mut ctx = OptimizeContext::new();
                 ctx.prepare(&input);
                 input.partial_eval_with(Some(&ctx))
