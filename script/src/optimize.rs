@@ -20,8 +20,8 @@ impl Optimizer {
         match level {
             OptimizeLevel::Disabled => input,
             OptimizeLevel::Normal => input.partial_eval(),
-            OptimizeLevel::JustDoIt |
-            OptimizeLevel::Aggressive => {
+            OptimizeLevel::Aggressive |
+            OptimizeLevel::JustDoIt => {
                 let mut ctx = OptimizeContext::new();
                 ctx.prepare(&input);
                 input.partial_eval_with(Some(&ctx))
