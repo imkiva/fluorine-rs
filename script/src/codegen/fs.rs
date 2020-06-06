@@ -1,10 +1,18 @@
-use crate::codegen::PartialCodeGenerator;
-use crate::tree::{Expr, Decl, Atom, Lit, MatchCase, Pattern};
-use crate::tree::Decl::LetDecl;
-use crate::tree::Lit::{LitNumber, LitString, LitBool};
-use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
-use crate::tree::Expr::{AtomExpr, UnaryExpr, BinaryExpr, ApplyExpr, DBI, MatchExpr};
-use crate::subst::Subst;
+use crate::{
+    codegen::PartialCodeGenerator,
+    subst::Subst,
+    tree::{
+        Atom,
+        Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
+        Decl,
+        Decl::LetDecl,
+        Expr,
+        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},
+        Lit,
+        Lit::{LitBool, LitNumber, LitString},
+        MatchCase, Pattern,
+    },
+};
 
 pub struct FsCodeGenerator;
 
@@ -48,19 +56,16 @@ impl<T: TargetFs> TargetFs for Vec<T> {
     fn codegen_to_fs(self: Self) -> String {
         self.into_iter()
             .map(|t| t.codegen_to_fs())
-            .fold(String::new(), |acc, t|
-                match acc.len() {
-                    0 => t,
-                    _ => acc + "\n" + t.as_str(),
-                })
+            .fold(String::new(), |acc, t| match acc.len() {
+                0 => t,
+                _ => acc + "\n" + t.as_str(),
+            })
     }
 }
 
 impl TargetFs for MatchCase {
     fn codegen_to_fs(self: Self) -> String {
-        format!("{} => {}, ",
-                self.0.codegen_to_fs(),
-                self.1.codegen_to_fs())
+        format!("{} => {}, ", self.0.codegen_to_fs(), self.1.codegen_to_fs())
     }
 }
 
@@ -88,10 +93,8 @@ impl TargetFs for Atom {
         match self {
             AtomLit(lit) => lit.codegen_to_fs(),
             AtomId(id) => id,
-            AtomLambda(argc, dbi, body) =>
-                codegen_lambda(argc, dbi, body),
-            AtomRawLambda(param, body) =>
-                codegen_raw_lambda(param, body),
+            AtomLambda(argc, dbi, body) => codegen_lambda(argc, dbi, body),
+            AtomRawLambda(param, body) => codegen_raw_lambda(param, body),
         }
     }
 }
@@ -101,16 +104,16 @@ impl TargetFs for Expr {
         match self {
             Expr::Unit => "()".to_string(),
             AtomExpr(atom) => atom.codegen_to_fs(),
-            UnaryExpr(op, operand) =>
-                format!("{}{}", op, operand.codegen_to_fs()),
-            BinaryExpr(op, lhs, rhs) =>
-                format!("{} {} {}", lhs.codegen_to_fs(), op, rhs.codegen_to_fs()),
-            ApplyExpr(f, a) =>
-                format!("{}({})", f.codegen_to_fs(), a.codegen_to_fs()),
-            MatchExpr(matchee, cases) =>
-                format!("match {} {{\n{}\n}}",
-                        matchee.codegen_to_fs(),
-                        cases.codegen_to_fs()),
+            UnaryExpr(op, operand) => format!("{}{}", op, operand.codegen_to_fs()),
+            BinaryExpr(op, lhs, rhs) => {
+                format!("{} {} {}", lhs.codegen_to_fs(), op, rhs.codegen_to_fs())
+            }
+            ApplyExpr(f, a) => format!("{}({})", f.codegen_to_fs(), a.codegen_to_fs()),
+            MatchExpr(matchee, cases) => format!(
+                "match {} {{\n{}\n}}",
+                matchee.codegen_to_fs(),
+                cases.codegen_to_fs()
+            ),
             DBI(_) => unreachable!("dangling DBI outside lambda"),
         }
     }
@@ -119,29 +122,29 @@ impl TargetFs for Expr {
 impl TargetFs for Decl {
     fn codegen_to_fs(self: Self) -> String {
         match self {
-            LetDecl(name, expr) =>
-                format!("let {} = {}\n", name, expr.codegen_to_fs()),
+            LetDecl(name, expr) => format!("let {} = {}\n", name, expr.codegen_to_fs()),
         }
     }
 }
 
 fn codegen_lambda(argc: i32, dbi: i32, body: Vec<Expr>) -> String {
-    let (param, body) = (dbi..argc).into_iter()
+    let (param, body) = (dbi..argc)
+        .into_iter()
         .map(|i| (i, format!("a{}", i)))
-        .fold((Vec::new(), body),
-              |(mut params, body), (dbi, name)| {
-                  params.push(name.clone());
-                  let replacement = AtomExpr(AtomId(name));
-                  (params, body.into_iter()
-                      .map(|expr| expr.subst(dbi, &replacement))
-                      .collect())
-              });
+        .fold((Vec::new(), body), |(mut params, body), (dbi, name)| {
+            params.push(name.clone());
+            let replacement = AtomExpr(AtomId(name));
+            (
+                params,
+                body.into_iter()
+                    .map(|expr| expr.subst(dbi, &replacement))
+                    .collect(),
+            )
+        });
 
     codegen_raw_lambda(param, body)
 }
 
 fn codegen_raw_lambda(param: Vec<String>, body: Vec<Expr>) -> String {
-    format!("{{ {} -> {} }}",
-            param.join(", "),
-            body.codegen_to_fs())
+    format!("{{ {} -> {} }}", param.join(", "), body.codegen_to_fs())
 }

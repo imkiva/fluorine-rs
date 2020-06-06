@@ -4,11 +4,14 @@ mod tests {
 
     #[test]
     fn test_pattern_match() {
-        let a = FsParser::ast("let a = match \"hello\" { \n\
+        let a = FsParser::ast(
+            "let a = match \"hello\" { \n\
             true => 1, \n\
             false => 0 \n\
             _ => \"fuck\", \n\
-            }").unwrap();
+            }",
+        )
+        .unwrap();
         println!("{:#?}", a);
     }
 }

@@ -1,7 +1,7 @@
-use crate::tree::{Program, Expr};
-use crate::pe::{PartialEval, PEContext};
-use crate::tree::ProgramItem::DeclItem;
-use crate::tree::Decl::LetDecl;
+use crate::{
+    pe::{PEContext, PartialEval},
+    tree::{Decl::LetDecl, Expr, Program, ProgramItem::DeclItem},
+};
 
 use std::collections::HashMap;
 
@@ -20,8 +20,7 @@ impl Optimizer {
         match level {
             OptimizeLevel::Disabled => input,
             OptimizeLevel::Normal => input.partial_eval(),
-            OptimizeLevel::Aggressive |
-            OptimizeLevel::JustDoIt => {
+            OptimizeLevel::Aggressive | OptimizeLevel::JustDoIt => {
                 let mut ctx = OptimizeContext::new();
                 ctx.prepare(&input);
                 input.partial_eval_with(Some(&ctx))
@@ -59,13 +58,15 @@ impl PEContext for OptimizeContext {
 
 #[cfg(test)]
 mod tests {
-    use crate::parse::FsParser;
-    use crate::optimize::Optimizer;
-    use crate::optimize::OptimizeLevel::AGGRESSIVE;
+    use crate::{
+        optimize::{OptimizeLevel::AGGRESSIVE, Optimizer},
+        parse::FsParser,
+    };
 
     #[test]
     fn test_aggressive() {
-        let ast = FsParser::ast("\
+        let ast = FsParser::ast(
+            "\
             let a = 1 + 1 + 3\n
             let b = 4 + 5 + 6\n
             let times = { a, b -> a * b }\n
@@ -74,7 +75,9 @@ mod tests {
             let id = { a -> a }\n
             let const_id = const(id)\n
             \
-        ").map(|ast| Optimizer::run(ast, AGGRESSIVE));
+        ",
+        )
+        .map(|ast| Optimizer::run(ast, AGGRESSIVE));
 
         if let Ok(p) = ast {
             println!("{:#?}", p);

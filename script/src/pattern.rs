@@ -1,7 +1,14 @@
-use crate::tree::{Expr, MatchCase, Pattern};
-use crate::eval::Value;
-use crate::tree::Lit::{LitBool, LitNumber, LitString};
-use crate::eval::Value::{BoolValue, NumberValue, StringValue};
+use crate::{
+    eval::{
+        Value,
+        Value::{BoolValue, NumberValue, StringValue},
+    },
+    tree::{
+        Expr,
+        Lit::{LitBool, LitNumber, LitString},
+        MatchCase, Pattern,
+    },
+};
 
 pub(crate) trait Matcher {
     type Input;
@@ -20,12 +27,15 @@ impl Matcher for MatchCase {
     fn try_match(self, input: &Self::Input) -> Option<(Self::Records, Self::Selected)> {
         match (self.0, input) {
             (Pattern::PatternWildcard, _) => Some(((), self.1)),
-            (Pattern::PatternLit(LitBool(lhs)), BoolValue(rhs))
-            if lhs == *rhs => Some(((), self.1)),
-            (Pattern::PatternLit(LitNumber(lhs)), NumberValue(rhs))
-            if lhs == *rhs => Some(((), self.1)),
-            (Pattern::PatternLit(LitString(lhs)), StringValue(rhs))
-            if lhs == *rhs => Some(((), self.1)),
+            (Pattern::PatternLit(LitBool(lhs)), BoolValue(rhs)) if lhs == *rhs => {
+                Some(((), self.1))
+            }
+            (Pattern::PatternLit(LitNumber(lhs)), NumberValue(rhs)) if lhs == *rhs => {
+                Some(((), self.1))
+            }
+            (Pattern::PatternLit(LitString(lhs)), StringValue(rhs)) if lhs == *rhs => {
+                Some(((), self.1))
+            }
             _ => None,
         }
     }
@@ -37,11 +47,9 @@ impl<T: Matcher> Matcher for Vec<T> {
     type Selected = T::Selected;
 
     fn try_match(self, input: &Self::Input) -> Option<(Self::Records, Self::Selected)> {
-        self.into_iter().fold(None, |last, matcher| {
-            match last {
-                None => matcher.try_match(input),
-                _ => last,
-            }
+        self.into_iter().fold(None, |last, matcher| match last {
+            None => matcher.try_match(input),
+            _ => last,
         })
     }
 }

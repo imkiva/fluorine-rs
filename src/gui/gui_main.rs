@@ -1,2 +1,1 @@
-pub(crate) fn gui_main() {
-}
+pub(crate) fn gui_main() {}

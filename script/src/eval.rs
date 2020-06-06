@@ -1,21 +1,35 @@
-use crate::tree::{Atom, Program, Expr, Decl, ProgramItem, Lit, Name, Argc, ApplyStartDBI, MatchCase};
-use crate::tree::ProgramItem::{ExprItem, DeclItem};
-use crate::tree::Decl::LetDecl;
-use crate::tree::Expr::{AtomExpr, DBI, UnaryExpr, BinaryExpr, ApplyExpr, MatchExpr};
-use crate::tree::Atom::{AtomLit, AtomId, AtomLambda, AtomRawLambda};
-use crate::tree::Lit::{LitNumber, LitString, LitBool};
-use crate::eval::Value::{NumberValue, StringValue, BoolValue, LambdaValue};
-use crate::eval::RuntimeError::{VariableNotFound, StackUnderflow, BottomTypedValue, DanglingDBI, DanglingRawLambda, NotApplicable, NonExhaustive};
-use crate::codegen::fs::FsCodeGenerator;
-use crate::codegen::PartialCodeGenerator;
-use crate::subst::Subst;
-use crate::pe::{PartialEval, PEContext};
-use crate::pattern::Matcher;
+use crate::{
+    codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
+    eval::{
+        RuntimeError::{
+            BottomTypedValue, DanglingDBI, DanglingRawLambda, NonExhaustive, NotApplicable,
+            StackUnderflow, VariableNotFound,
+        },
+        Value::{BoolValue, LambdaValue, NumberValue, StringValue},
+    },
+    pattern::Matcher,
+    pe::{PEContext, PartialEval},
+    subst::Subst,
+    tree::{
+        ApplyStartDBI, Argc, Atom,
+        Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
+        Decl,
+        Decl::LetDecl,
+        Expr,
+        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},
+        Lit,
+        Lit::{LitBool, LitNumber, LitString},
+        MatchCase, Name, Program, ProgramItem,
+        ProgramItem::{DeclItem, ExprItem},
+    },
+};
 
-use std::collections::{VecDeque, HashMap};
-use std::ops::Not;
-use std::cmp::Ordering;
-use std::fmt::Formatter;
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, VecDeque},
+    fmt::Formatter,
+    ops::Not,
+};
 
 #[derive(Debug)]
 pub enum RuntimeError {
@@ -66,9 +80,8 @@ impl std::fmt::Display for Value {
             StringValue(v) => write!(f, "{} :: String", v),
             LambdaValue(argc, dbi, body) => {
                 let gen = FsCodeGenerator::new();
-                let code = gen.partial_codegen_expr(AtomExpr(AtomLambda(
-                    *argc, *dbi, body.clone(),
-                )));
+                let code =
+                    gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
                 write!(f, "{}", code)
             }
         }
@@ -152,7 +165,7 @@ impl Eval for Expr {
                     Ok(val.not())
                 }
                 _ => unreachable!("Unexpected unary operator"),
-            }
+            },
 
             BinaryExpr(op, lhs, rhs) => {
                 let l = lhs.eval_into(ctx)?.ok_or(BottomTypedValue)?;
@@ -181,11 +194,9 @@ impl Eval for Expr {
                 }
             }
 
-            ApplyExpr(f, a) =>
-                eval_apply(ctx, *f, *a),
+            ApplyExpr(f, a) => eval_apply(ctx, *f, *a),
 
-            MatchExpr(expr, cases) =>
-                eval_match(ctx, *expr, cases),
+            MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
 
             DBI(_) => Err(DanglingDBI),
             _ => unreachable!("Internal Error"),
@@ -309,16 +320,20 @@ impl Context {
     }
 
     fn put_var(&mut self, name: Name, value: Value) -> Result<(), RuntimeError> {
-        self.stack.front_mut()
+        self.stack
+            .front_mut()
             .ok_or(StackUnderflow)?
-            .vars.insert(name, value);
+            .vars
+            .insert(name, value);
         Ok(())
     }
 
     fn get_var(&self, name: &str) -> Result<Value, RuntimeError> {
-        self.stack.front()
+        self.stack
+            .front()
             .ok_or(StackUnderflow)?
-            .vars.get(name)
+            .vars
+            .get(name)
             .map(|v| v.clone())
             .ok_or(VariableNotFound(name.to_owned()))
     }
@@ -328,23 +343,17 @@ impl Context {
     }
 
     fn pop_scope(&mut self) -> Result<(), RuntimeError> {
-        self.stack.pop_front()
-            .ok_or(StackUnderflow)
-            .map(|_| ())
+        self.stack.pop_front().ok_or(StackUnderflow).map(|_| ())
     }
 }
 
 impl PEContext for Context {
     fn try_resolve_constant(&self, name: &str) -> Option<Expr> {
         match self.get_var(name) {
-            Ok(NumberValue(n)) =>
-                Some(AtomExpr(AtomLit(LitNumber(n)))),
-            Ok(BoolValue(b)) =>
-                Some(AtomExpr(AtomLit(LitBool(b)))),
-            Ok(StringValue(s)) =>
-                Some(AtomExpr(AtomLit(LitString(s)))),
-            Ok(LambdaValue(argc, dbi, body)) =>
-                Some(AtomExpr(AtomLambda(argc, dbi, body))),
+            Ok(NumberValue(n)) => Some(AtomExpr(AtomLit(LitNumber(n)))),
+            Ok(BoolValue(b)) => Some(AtomExpr(AtomLit(LitBool(b)))),
+            Ok(StringValue(s)) => Some(AtomExpr(AtomLit(LitString(s)))),
+            Ok(LambdaValue(argc, dbi, body)) => Some(AtomExpr(AtomLambda(argc, dbi, body))),
             _ => None,
         }
     }
@@ -380,8 +389,11 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
     }
 }
 
-fn eval_match(ctx: &mut Context, matchee: Expr, cases: Vec<MatchCase>)
-              -> Result<Option<Value>, RuntimeError> {
+fn eval_match(
+    ctx: &mut Context,
+    matchee: Expr,
+    cases: Vec<MatchCase>,
+) -> Result<Option<Value>, RuntimeError> {
     let value = matchee.eval_into(ctx)?.ok_or(BottomTypedValue)?;
 
     match cases.try_match(&value) {

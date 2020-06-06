@@ -1,12 +1,12 @@
-use script::parse::FsParser;
-use script::parse::CompileError;
-use script::tree::Program;
-use script::optimize::Optimizer;
-use script::eval::Context;
+use script::{
+    eval::Context,
+    optimize::Optimizer,
+    parse::{CompileError, FsParser},
+    tree::Program,
+};
 
-use rustyline::error::ReadlineError;
-use rustyline::Editor;
 use crate::config::Config;
+use rustyline::{error::ReadlineError, Editor};
 
 struct REPL {
     context: Context,
@@ -44,8 +44,7 @@ impl REPL {
             match readline {
                 Ok(line) => {
                     self.rl.add_history_entry(line.as_str());
-                    compile_and_run(&self.cfg, &mut self.context,
-                                    "<stdin>", line.as_str());
+                    compile_and_run(&self.cfg, &mut self.context, "<stdin>", line.as_str());
                 }
 
                 Err(ReadlineError::Interrupted) => (),
@@ -70,8 +69,7 @@ impl Drop for REPL {
 }
 
 fn compile(cfg: &Config, input: &str) -> Result<Program, CompileError> {
-    FsParser::ast(input).map(
-        |ast| Optimizer::run(ast, cfg.opt_level.clone()))
+    FsParser::ast(input).map(|ast| Optimizer::run(ast, cfg.opt_level.clone()))
 }
 
 fn compile_and_run(cfg: &Config, ctx: &mut Context, file: &str, input: &str) {
