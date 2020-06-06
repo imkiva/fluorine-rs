@@ -2,7 +2,7 @@ pub mod cli;
 pub mod gui;
 pub mod config;
 
-use clap::App;
+use clap::{App, Arg};
 use script::optimize::OptimizeLevel;
 
 fn main() {
@@ -14,8 +14,10 @@ fn main() {
             -i, --repl               'Starts an interactive fluorine shell'
             -g, --gui                'Starts an GUI'
             -d, --dump-ast           'Prints AST before evaluation'
-            -O, --optimize=<level>   'Sets optimization level (0-3)'
+            -O, --optimize=[level]   'Sets optimization level (0-3)'
             [INPUT]                  'Source code to run'")
+        .arg(Arg::with_name("args").multiple(true).last(true)
+            .help("Arguments passed to source script"))
         .get_matches();
 
     let mut cfg = config::Config::new();
