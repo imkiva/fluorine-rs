@@ -21,8 +21,7 @@ pub enum Atom {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    _BottomExpr,
-
+    Unit,
     AtomExpr(Atom),
     DBI(i32),
     UnaryExpr(String, Box<Expr>),

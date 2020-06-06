@@ -219,7 +219,7 @@ fn parse_lit(lit: Pair<Rule>) -> Lit {
 
 fn parse_decl(node: Pair<Rule>) -> Decl {
     let mut id = "";
-    let mut expr = _BottomExpr;
+    let mut expr = Unit;
     for child in node.into_inner() {
         match child.as_rule() {
             Rule::id => id = child.as_str(),
