@@ -15,7 +15,7 @@ use pest::{
 use std::{collections::VecDeque, result::Result};
 
 #[derive(Parser)]
-#[grammar = "fs.pest"]
+#[grammar = "grammar.pest"]
 pub struct FsParser;
 
 pub type ParseErrorVariant = ErrorVariant<Rule>;
