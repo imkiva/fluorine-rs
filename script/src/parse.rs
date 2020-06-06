@@ -33,13 +33,11 @@ impl FsParser {
 fn convert_dbi(input: Program) -> Program {
     input.into_iter()
         .map(|item| match item {
-            ExprItem(AtomExpr(AtomRawLambda(names, body))) =>
-                ExprItem(dbi_lambda(&mut VecDeque::new(),
-                                    AtomExpr(AtomRawLambda(names, body)))),
+            ExprItem(expr) =>
+                ExprItem(dbi_lambda(&mut VecDeque::new(), expr)),
+
             DeclItem(LetDecl(name, expr)) =>
                 DeclItem(LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr))),
-
-            _ => item,
         })
         .collect()
 }

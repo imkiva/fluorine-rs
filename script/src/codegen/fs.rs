@@ -58,7 +58,7 @@ impl<T: TargetFs> TargetFs for Vec<T> {
 
 impl TargetFs for MatchCase {
     fn codegen_to_fs(self: Self) -> String {
-        format!("{} => {}",
+        format!("{} => {}, ",
                 self.0.codegen_to_fs(),
                 self.1.codegen_to_fs())
     }
@@ -99,6 +99,7 @@ impl TargetFs for Atom {
 impl TargetFs for Expr {
     fn codegen_to_fs(self: Self) -> String {
         match self {
+            Expr::Unit => "()".to_string(),
             AtomExpr(atom) => atom.codegen_to_fs(),
             UnaryExpr(op, operand) =>
                 format!("{}{}", op, operand.codegen_to_fs()),
@@ -111,7 +112,6 @@ impl TargetFs for Expr {
                         matchee.codegen_to_fs(),
                         cases.codegen_to_fs()),
             DBI(_) => unreachable!("dangling DBI outside lambda"),
-            _ => unreachable!("internal error expr"),
         }
     }
 }
