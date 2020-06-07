@@ -181,8 +181,8 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "dirs",
+ "lang",
  "rustyline",
- "script",
 ]
 
 [[package]]
@@ -212,6 +212,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "725cf19794cf90aa94e65050cb4191ff5d8fa87a498383774c47b332e3af952e"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "lang"
+version = "0.1.0"
+dependencies = [
+ "pest",
+ "pest_derive",
 ]
 
 [[package]]
@@ -372,14 +380,6 @@ dependencies = [
  "unicode-width",
  "utf8parse",
  "winapi",
-]
-
-[[package]]
-name = "script"
-version = "0.1.0"
-dependencies = [
- "pest",
- "pest_derive",
 ]
 
 [[package]]

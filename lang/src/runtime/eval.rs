@@ -1,5 +1,4 @@
 use crate::{
-    codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
     runtime::{
         subst::Subst,
         RuntimeError::{
@@ -9,7 +8,7 @@ use crate::{
         Value::{BoolValue, LambdaValue, NumberValue, StringValue},
     },
     syntax::tree::{
-        ApplyStartDBI, Argc, Atom,
+        Atom,
         Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
         Decl,
         Decl::LetDecl,
@@ -26,12 +25,7 @@ use crate::{
     runtime::{pattern::Matcher, Context, RuntimeError, Scope, Value},
     syntax::pe::{PEContext, PartialEval},
 };
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, VecDeque},
-    fmt::Formatter,
-    ops::Not,
-};
+use std::{collections::VecDeque, ops::Not};
 
 pub(crate) trait Eval {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError>;

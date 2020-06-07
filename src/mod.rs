@@ -3,7 +3,7 @@ pub mod config;
 pub mod gui;
 
 use clap::{App, Arg};
-use script::syntax::optimize::OptimizeLevel;
+use lang::syntax::optimize::OptimizeLevel;
 
 fn main() {
     let args = App::new("fluorine")

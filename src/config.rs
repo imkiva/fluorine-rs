@@ -1,4 +1,4 @@
-use script::syntax::optimize::OptimizeLevel;
+use lang::syntax::optimize::OptimizeLevel;
 
 pub struct Config {
     pub opt_level: OptimizeLevel,

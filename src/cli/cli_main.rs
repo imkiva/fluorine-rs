@@ -1,4 +1,4 @@
-use script::{
+use lang::{
     runtime::Context,
     syntax::{
         optimize::Optimizer,
