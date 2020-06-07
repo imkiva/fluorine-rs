@@ -1,16 +1,14 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
-    eval::{
+    runtime::{
+        subst::Subst,
         RuntimeError::{
             BottomTypedValue, DanglingDBI, DanglingRawLambda, NonExhaustive, NotApplicable,
             StackUnderflow, VariableNotFound,
         },
         Value::{BoolValue, LambdaValue, NumberValue, StringValue},
     },
-    pattern::Matcher,
-    pe::{PEContext, PartialEval},
-    subst::Subst,
-    tree::{
+    syntax::tree::{
         ApplyStartDBI, Argc, Atom,
         Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
         Decl,
@@ -24,90 +22,16 @@ use crate::{
     },
 };
 
+use crate::{
+    runtime::{pattern::Matcher, Context, RuntimeError, Scope, Value},
+    syntax::pe::{PEContext, PartialEval},
+};
 use std::{
     cmp::Ordering,
     collections::{HashMap, VecDeque},
     fmt::Formatter,
     ops::Not,
 };
-
-#[derive(Debug)]
-pub enum RuntimeError {
-    DanglingDBI,
-    DanglingRawLambda,
-    StackUnderflow,
-    VariableNotFound(String),
-    NotApplicable,
-    NonExhaustive,
-    BottomTypedValue,
-}
-
-impl std::fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DanglingDBI => write!(f, "InternalError: detected dangling DBI outside lambda"),
-            DanglingRawLambda => write!(f, "InternalError: detected unresolved lambda"),
-            StackUnderflow => write!(f, "RuntimeError: stack underflow"),
-            VariableNotFound(id) => write!(f, "NameError: variable '{}' not found", id),
-            BottomTypedValue => write!(f, "TypeError: try to produce bottom typed value"),
-            NotApplicable => write!(f, "TypeError: not a lambda"),
-            NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
-        }
-    }
-}
-
-pub struct Context {
-    stack: VecDeque<Scope>,
-}
-
-struct Scope {
-    vars: HashMap<Name, Value>,
-}
-
-#[derive(Clone)]
-pub enum Value {
-    NumberValue(f64),
-    BoolValue(bool),
-    StringValue(String),
-    LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
-}
-
-impl std::fmt::Display for Value {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NumberValue(v) => write!(f, "{} :: Number", v),
-            BoolValue(v) => write!(f, "{} :: Bool", v),
-            StringValue(v) => write!(f, "{} :: String", v),
-            LambdaValue(argc, dbi, body) => {
-                let gen = FsCodeGenerator::new();
-                let code =
-                    gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
-                write!(f, "{}", code)
-            }
-        }
-    }
-}
-
-impl std::cmp::PartialOrd for Value {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            (NumberValue(lhs), NumberValue(rhs)) => lhs.partial_cmp(rhs),
-            (StringValue(lhs), StringValue(rhs)) => lhs.partial_cmp(rhs),
-            _ => None,
-        }
-    }
-}
-
-impl std::cmp::PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (NumberValue(lhs), NumberValue(rhs)) => lhs == rhs,
-            (BoolValue(lhs), BoolValue(rhs)) => lhs == rhs,
-            (StringValue(lhs), StringValue(rhs)) => lhs == rhs,
-            _ => false,
-        }
-    }
-}
 
 pub(crate) trait Eval {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError>;
@@ -372,7 +296,7 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
         Some(LambdaValue(argc, dbi, body)) => {
             debug_assert_ne!(argc, dbi);
             // XXX: should we check whether a evals to be a value?
-            // partial_eval_with() will eval a into a value, but it
+            // partial_eval_with() will runtime a into a value, but it
             // will not throw an error when a doesn't not exists.
             let new_body = body.subst(dbi, &a).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {

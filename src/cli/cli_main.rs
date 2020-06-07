@@ -1,8 +1,10 @@
 use script::{
-    eval::Context,
-    optimize::Optimizer,
-    parse::{CompileError, FsParser},
-    tree::Program,
+    runtime::Context,
+    syntax::{
+        optimize::Optimizer,
+        parse::{CompileError, FsParser},
+        tree::Program,
+    },
 };
 
 use crate::config::Config;

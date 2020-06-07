@@ -1,4 +1,4 @@
-use crate::{
+use crate::syntax::{
     pe::{PEContext, PartialEval},
     tree::{Decl::LetDecl, Expr, Program, ProgramItem::DeclItem},
 };
@@ -53,36 +53,5 @@ impl OptimizeContext {
 impl PEContext for OptimizeContext {
     fn try_resolve_constant(&self, name: &str) -> Option<Expr> {
         self.vars.get(name).map(|e| e.clone())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        optimize::{OptimizeLevel::AGGRESSIVE, Optimizer},
-        parse::FsParser,
-    };
-
-    #[test]
-    fn test_aggressive() {
-        let ast = FsParser::ast(
-            "\
-            let a = 1 + 1 + 3\n
-            let b = 4 + 5 + 6\n
-            let times = { a, b -> a * b }\n
-            let result = times(a, b)\n
-            let const = { a, b -> a }\n
-            let id = { a -> a }\n
-            let const_id = const(id)\n
-            \
-        ",
-        )
-        .map(|ast| Optimizer::run(ast, AGGRESSIVE));
-
-        if let Ok(p) = ast {
-            println!("{:#?}", p);
-        } else {
-            eprintln!("Internal error")
-        }
     }
 }

@@ -1,4 +1,4 @@
-use crate::tree::{
+use crate::syntax::tree::{
     Atom::AtomLambda,
     Expr,
     Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},

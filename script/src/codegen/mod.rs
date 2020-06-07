@@ -1,4 +1,4 @@
-use crate::tree::{Atom, Decl, Expr, Lit, Program, ProgramItem};
+use crate::syntax::tree::{Atom, Decl, Expr, Lit, Program, ProgramItem};
 
 pub trait CodeGenerator {
     type Output;

@@ -1,9 +1,9 @@
 use crate::{
-    eval::{
+    runtime::{
         Value,
         Value::{BoolValue, NumberValue, StringValue},
     },
-    tree::{
+    syntax::tree::{
         Expr,
         Lit::{LitBool, LitNumber, LitString},
         MatchCase, Pattern,

@@ -1,7 +1,7 @@
 use crate::{
     codegen::PartialCodeGenerator,
-    subst::Subst,
-    tree::{
+    runtime::subst::Subst,
+    syntax::tree::{
         Atom,
         Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
         Decl,

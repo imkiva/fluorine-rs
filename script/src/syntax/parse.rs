@@ -1,4 +1,4 @@
-use crate::tree::{
+use crate::syntax::tree::{
     Atom::*,
     Decl::*,
     Expr::*,
@@ -15,7 +15,7 @@ use pest::{
 use std::{collections::VecDeque, result::Result};
 
 #[derive(Parser)]
-#[grammar = "grammar.pest"]
+#[grammar = "syntax/grammar.pest"]
 pub struct FsParser;
 
 pub type ParseErrorVariant = ErrorVariant<Rule>;
