@@ -85,6 +85,7 @@ impl REPL {
 
             ":}" => {
                 self.multiline = false;
+                self.prompt = "Fs> ".to_owned();
                 let line = self.multiline_buffer.join("\n");
                 self.run_code(line);
             }
