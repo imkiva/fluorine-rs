@@ -82,8 +82,7 @@ fn compile_and_run(cfg: &Config, ctx: &mut Context, file: &str, input: &str) {
             }
 
             match ctx.source(tree) {
-                Ok(Some(v)) => println!("{}", v),
-                Ok(None) => (),
+                Ok(v) => println!("{}", v),
                 Err(err) => eprintln!("{}", err),
             }
         }

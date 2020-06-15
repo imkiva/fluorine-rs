@@ -1,5 +1,6 @@
 use crate::syntax::tree::{
     Atom::{AtomId, AtomLambda, AtomLit},
+    Decl::EnumDecl,
     Expr::{ApplyExpr, AtomExpr, BinaryExpr, UnaryExpr, DBI},
     Lit::{LitBool, LitNumber},
     ProgramItem::{DeclItem, ExprItem},
@@ -56,6 +57,7 @@ impl PartialEval for Decl {
     fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
         match self {
             Decl::LetDecl(name, expr) => Decl::LetDecl(name, expr.partial_eval_with(ctx)),
+            Decl::EnumDecl(name, variants) => EnumDecl(name, variants),
         }
     }
 }

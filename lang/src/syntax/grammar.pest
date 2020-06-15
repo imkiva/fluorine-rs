@@ -90,7 +90,17 @@ escape = _{ "\\\\"
           | "\\t"
           }
 
-decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
+decl = { let_decl
+       | enum_decl
+       }
+
+let_decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
+
+enum_decl = { "enum" ~ id ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
+
+enum_variant = { id ~ "(" ~ field_placeholder* ~ ")" }
+
+field_placeholder = { "_" }
 
 id = $ { (ASCII_ALPHA | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 

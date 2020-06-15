@@ -41,6 +41,8 @@ fn convert_dbi(input: Program) -> Program {
             DeclItem(LetDecl(name, expr)) => {
                 DeclItem(LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr)))
             }
+
+            DeclItem(EnumDecl(name, variants)) => DeclItem(EnumDecl(name, variants)),
         })
         .collect()
 }
@@ -232,10 +234,35 @@ fn parse_lit(lit: Pair<Rule>) -> Lit {
 }
 
 fn parse_decl(node: Pair<Rule>) -> Decl {
+    let child = node.into_inner().next().unwrap();
+    match child.as_rule() {
+        Rule::let_decl => parse_let_decl(child),
+        Rule::enum_decl => parse_enum_decl(child),
+        _ => unreachable!("unsupported decl type: {:?}", child.as_rule()),
+    }
+}
+
+fn parse_let_decl(node: Pair<Rule>) -> Decl {
     let mut iter = node.into_inner().into_iter();
     let id = iter.next().unwrap().as_str();
     let expr = parse_expr(iter.next().unwrap());
     LetDecl(id.to_owned(), expr)
+}
+
+fn parse_enum_decl(node: Pair<Rule>) -> Decl {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    let variants = iter.map(parse_enum_variant).collect();
+    EnumDecl(id.to_owned(), variants)
+}
+
+fn parse_enum_variant(node: Pair<Rule>) -> EnumVariant {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    EnumVariant {
+        name: id.to_owned(),
+        fields: iter.count() as i32,
+    }
 }
 
 fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {

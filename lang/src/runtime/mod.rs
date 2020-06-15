@@ -1,7 +1,9 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
     runtime::Value::{BoolValue, LambdaValue, NumberValue, StringValue, UnitValue},
-    syntax::tree::{ApplyStartDBI, Argc, Atom::AtomLambda, Expr, Expr::AtomExpr, Name},
+    syntax::tree::{
+        ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Name,
+    },
 };
 use std::{
     cmp::Ordering,
@@ -21,7 +23,7 @@ pub enum RuntimeError {
     VariableNotFound(String),
     NotApplicable,
     NonExhaustive,
-    BottomTypedValue,
+    TypeMismatch,
 }
 
 impl std::fmt::Display for RuntimeError {
@@ -37,17 +39,18 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::VariableNotFound(id) => {
                 write!(f, "NameError: variable '{}' not found", id)
             }
-            RuntimeError::BottomTypedValue => {
-                write!(f, "TypeError: try to produce bottom typed value")
-            }
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
+            RuntimeError::TypeMismatch => {
+                write!(f, "TypeError: operators can only apply to same types")
+            }
         }
     }
 }
 
 pub struct Context {
     stack: VecDeque<Scope>,
+    enums: HashMap<Name, Vec<EnumVariant>>,
 }
 
 pub struct Scope {

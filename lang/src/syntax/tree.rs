@@ -42,6 +42,13 @@ pub enum Pattern {
 #[derive(Debug)]
 pub enum Decl {
     LetDecl(Name, Expr),
+    EnumDecl(Name, Vec<EnumVariant>),
+}
+
+#[derive(Debug)]
+pub struct EnumVariant {
+    pub name: String,
+    pub fields: i32,
 }
 
 #[derive(Debug)]

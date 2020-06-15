@@ -5,8 +5,8 @@ use crate::{
         Atom,
         Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
         Decl,
-        Decl::LetDecl,
-        Expr,
+        Decl::{EnumDecl, LetDecl},
+        EnumVariant, Expr,
         Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
         Lit,
         Lit::{LitBool, LitNumber, LitString},
@@ -123,7 +123,23 @@ impl TargetFs for Decl {
     fn codegen_to_fs(self: Self) -> String {
         match self {
             LetDecl(name, expr) => format!("let {} = {}\n", name, expr.codegen_to_fs()),
+            EnumDecl(name, variants) => {
+                format!("enum {} {{\n{}\n}}", name, variants.codegen_to_fs())
+            }
         }
+    }
+}
+
+impl TargetFs for EnumVariant {
+    fn codegen_to_fs(self: Self) -> String {
+        format!(
+            "{}({})",
+            self.name,
+            (0..self.fields)
+                .map(|_| "_".to_owned())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
 
