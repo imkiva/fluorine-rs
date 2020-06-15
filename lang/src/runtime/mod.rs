@@ -49,12 +49,12 @@ impl std::fmt::Display for RuntimeError {
 }
 
 pub struct Context {
-    stack: VecDeque<Scope>,
-    enums: HashMap<Name, Vec<EnumVariant>>,
+    pub stack: VecDeque<Scope>,
 }
 
 pub struct Scope {
-    vars: HashMap<Name, Value>,
+    pub vars: HashMap<Name, Value>,
+    pub enums: HashMap<Name, Vec<EnumVariant>>,
 }
 
 #[derive(Clone)]

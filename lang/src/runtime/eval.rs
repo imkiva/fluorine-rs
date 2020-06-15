@@ -32,7 +32,7 @@ use crate::{
     },
 };
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::VecDeque,
     ops::Not,
 };
 
@@ -79,7 +79,7 @@ impl Eval for Decl {
                 Ok(UnitValue)
             }
             EnumDecl(name, variants) => {
-                ctx.put_enum(name, variants);
+                ctx.put_enum(name, variants)?;
                 Ok(UnitValue)
             }
         }
@@ -273,7 +273,6 @@ impl Context {
         stack.push_front(Scope::new());
         Context {
             stack,
-            enums: HashMap::new(),
         }
     }
 
@@ -300,8 +299,13 @@ impl Context {
             .ok_or(VariableNotFound(name.to_owned()))
     }
 
-    fn put_enum(&mut self, name: String, variants: Vec<EnumVariant>) {
-        let _ = self.enums.insert(name, variants);
+    fn put_enum(&mut self, name: String, variants: Vec<EnumVariant>) -> Result<(), RuntimeError> {
+        self.stack
+            .front_mut()
+            .ok_or(StackUnderflow)?
+            .enums
+            .insert(name, variants);
+        Ok(())
     }
 
     fn new_scope(&mut self) {
@@ -330,6 +334,7 @@ impl Scope {
     fn new() -> Scope {
         Scope {
             vars: Default::default(),
+            enums: Default::default(),
         }
     }
 }

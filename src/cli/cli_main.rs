@@ -15,6 +15,10 @@ struct REPL {
     rl: Editor<()>,
     history_file: Option<String>,
     cfg: Config,
+    repl_run: bool,
+    prompt: String,
+    multiline: bool,
+    multiline_buffer: Vec<String>,
 }
 
 impl REPL {
@@ -31,6 +35,10 @@ impl REPL {
             rl: Editor::<()>::new(),
             history_file,
             cfg,
+            repl_run: true,
+            prompt: "Fs> ".to_owned(),
+            multiline: false,
+            multiline_buffer: Vec::new(),
         };
 
         if let Some(ref path) = repl.history_file {
@@ -41,12 +49,19 @@ impl REPL {
     }
 
     fn start(&mut self) {
-        loop {
-            let readline = self.rl.readline("Fs> ");
+        while self.repl_run {
+            let readline = self.rl.readline(self.prompt.as_str());
             match readline {
                 Ok(line) => {
-                    self.rl.add_history_entry(line.as_str());
-                    compile_and_run(&self.cfg, &mut self.context, "<stdin>", line.as_str());
+                    if line.starts_with(":") {
+                        self.process_command(line);
+                        continue;
+                    }
+
+                    match self.multiline {
+                        true => self.multiline_buffer.push(line),
+                        _ => self.run_code(line),
+                    }
                 }
 
                 Err(ReadlineError::Interrupted) => (),
@@ -59,6 +74,42 @@ impl REPL {
                 }
             }
         }
+    }
+
+    fn process_command(&mut self, line: String) {
+        match line.as_str() {
+            ":{" => {
+                self.multiline = true;
+                self.prompt = "Fs| ".to_owned();
+            }
+
+            ":}" => {
+                self.multiline = false;
+                let line = self.multiline_buffer.join("\n");
+                self.run_code(line);
+            }
+
+            ":q" => {
+                self.repl_run = false;
+            }
+
+            ":scope" => {
+                let scope = self.context.stack.front().expect("?");
+                println!("Enums: ");
+                scope.enums.iter().for_each(|(k, _)| println!("- {}", k));
+                println!();
+                println!("Vars:");
+                scope.vars.iter().for_each(|(k, _)| println!("- {}", k));
+                println!();
+            }
+
+            _ => println!("REPL: Unknown command {}", line.as_str()),
+        }
+    }
+
+    fn run_code(&mut self, line: String) {
+        self.rl.add_history_entry(line.as_str());
+        compile_and_run(&self.cfg, &mut self.context, "<stdin>", line.as_str());
     }
 }
 
