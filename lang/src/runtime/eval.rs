@@ -35,6 +35,7 @@ use crate::{
     },
 };
 use std::{collections::VecDeque, ops::Not};
+use std::collections::HashMap;
 
 pub(crate) trait Eval {
     fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError>;
@@ -93,7 +94,7 @@ impl Eval for Decl {
                                 Vec::with_capacity(variant.fields as usize),
                             ),
                         )?,
-                    }
+                    };
                 }
                 ctx.put_enum(name, variants)?;
                 Ok(UnitValue)
@@ -294,13 +295,13 @@ impl Context {
         input.eval_into(self)
     }
 
-    fn put_var(&mut self, name: Name, value: Value) -> Result<(), RuntimeError> {
-        self.stack
+    fn put_var(&mut self, name: Name, value: Value) -> Result<Option<Value>, RuntimeError> {
+        Ok(self
+            .stack
             .front_mut()
             .ok_or(StackUnderflow)?
             .vars
-            .insert(name, value);
-        Ok(())
+            .insert(name, value))
     }
 
     fn get_var(&self, name: &str) -> Result<Value, RuntimeError> {
@@ -402,7 +403,22 @@ fn eval_match(
     let value = matchee.eval_into(ctx)?;
 
     match cases.try_match(&value) {
-        Some((_, result)) => result.eval_into(ctx),
+        Some((records, result)) => {
+            // We cannot just override the scope neither create a new scope,
+            // instead we should backup the vars that will be overwritten
+            // and restore them when match ends.
+            let mut backup = HashMap::with_capacity(records.len());
+            for (name, value) in records {
+                backup.insert(name.clone(), ctx.put_var(name, value)?);
+            }
+            let result = result.eval_into(ctx);
+            for (name, value) in backup {
+                if let Some(value) = value {
+                    ctx.put_var(name, value)?;
+                }
+            }
+            result
+        }
         _ => Err(NonExhaustive),
     }
 }

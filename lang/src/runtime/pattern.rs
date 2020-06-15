@@ -1,14 +1,16 @@
 use crate::{
     runtime::{
         Value,
-        Value::{BoolValue, NumberValue, StringValue},
+        Value::{BoolValue, EnumValue, NumberValue, StringValue},
     },
     syntax::tree::{
         Expr,
         Lit::{LitBool, LitNumber, LitString},
-        MatchCase, Pattern,
+        MatchCase,
+        Pattern::{PatLit, PatVariant, PatWildcard},
     },
 };
+use std::collections::HashMap;
 
 pub(crate) trait Matcher {
     type Input;
@@ -20,19 +22,26 @@ pub(crate) trait Matcher {
 
 impl Matcher for MatchCase {
     type Input = Value;
-    // XXX: No record currently
-    type Records = ();
+    type Records = HashMap<String, Value>;
     type Selected = Expr;
 
     fn try_match(self, input: &Self::Input) -> Option<(Self::Records, Self::Selected)> {
         match (self.0, input) {
-            (Pattern::PatWildcard, _) => Some(((), self.1)),
-            (Pattern::PatLit(LitBool(lhs)), BoolValue(rhs)) if lhs == *rhs => Some(((), self.1)),
-            (Pattern::PatLit(LitNumber(lhs)), NumberValue(rhs)) if lhs == *rhs => {
-                Some(((), self.1))
+            (PatWildcard, _) => Some((Default::default(), self.1)),
+            (PatLit(LitBool(lhs)), BoolValue(rhs)) if lhs == *rhs => {
+                Some((Default::default(), self.1))
             }
-            (Pattern::PatLit(LitString(lhs)), StringValue(rhs)) if lhs == *rhs => {
-                Some(((), self.1))
+            (PatLit(LitNumber(lhs)), NumberValue(rhs)) if lhs == *rhs => {
+                Some((Default::default(), self.1))
+            }
+            (PatLit(LitString(lhs)), StringValue(rhs)) if lhs == *rhs => {
+                Some((Default::default(), self.1))
+            }
+            (PatVariant(lhs), EnumValue(rhs, fields))
+                if lhs.name == rhs.name && lhs.fields.len() == fields.len() =>
+            {
+                let records = lhs.fields.into_iter().zip(fields.clone()).collect();
+                Some((records, self.1))
             }
             _ => None,
         }
