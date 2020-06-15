@@ -295,7 +295,13 @@ fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, Runt
             let new_body = body.subst(dbi, &a).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
                 ctx.new_scope();
-                let result = new_body.eval_into(ctx)?;
+                let result = match new_body.eval_into(ctx) {
+                    Ok(value) => value,
+                    err => {
+                        ctx.pop_scope()?;
+                        return err;
+                    }
+                };
                 ctx.pop_scope()?;
                 Ok(result)
             } else {
