@@ -285,14 +285,14 @@ impl Scope {
     }
 }
 
-fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, RuntimeError> {
+fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Option<Value>, RuntimeError> {
     match f.eval_into(ctx)? {
         Some(LambdaValue(argc, dbi, body)) => {
             debug_assert_ne!(argc, dbi);
-            // XXX: should we check whether a evals to be a value?
-            // partial_eval_with() will runtime a into a value, but it
-            // will not throw an error when a doesn't not exists.
-            let new_body = body.subst(dbi, &a).partial_eval_with(Some(ctx));
+            // We should eval the arg into a normalized form as we are binding
+            // the arg to the DBI(dbi) expr
+            let arg = arg.partial_eval_with(Some(ctx));
+            let new_body = body.subst(dbi, &arg).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
                 ctx.new_scope();
                 let result = match new_body.eval_into(ctx) {
