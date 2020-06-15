@@ -101,21 +101,16 @@ impl Eval for Expr {
 
             BinaryExpr(op, lhs, rhs) => {
                 let l = lhs.eval_into(ctx)?;
-                // logical operators should be short-circuit
-                // TODO: this is a bug
-                match op.as_str() {
-                    "&&" => return Ok(UnitValue),
-                    "||" => return Ok(UnitValue),
-                    _ => (),
-                };
-
                 let r = rhs.eval_into(ctx)?;
+
                 match op.as_str() {
                     "+" => Ok((l + r)?),
                     "-" => Ok((l - r)?),
                     "*" => Ok((l * r)?),
                     "/" => Ok((l / r)?),
                     "%" => Ok((l % r)?),
+                    "&&" => Ok(l.logical_and(r)?),
+                    "||" => Ok(l.logical_or(r)?),
                     "^" => Ok((l.pow(r))?),
                     "==" => Ok(BoolValue(l == r)),
                     "!=" => Ok(BoolValue(l != r)),
@@ -235,6 +230,38 @@ impl Pow for Value {
     fn pow(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l.powf(r))),
+            _ => Err(RuntimeError::TypeMismatch),
+        }
+    }
+}
+
+trait NoShortCircuitLogicalAnd {
+    type Output;
+    fn logical_and(self, rhs: Self) -> Self::Output;
+}
+
+trait NoShortCircuitLogicalOr {
+    type Output;
+    fn logical_or(self, rhs: Self) -> Self::Output;
+}
+
+impl NoShortCircuitLogicalAnd for Value {
+    type Output = Result<Value, RuntimeError>;
+
+    fn logical_and(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (BoolValue(l), BoolValue(r)) => Ok(BoolValue(l && r)),
+            _ => Err(RuntimeError::TypeMismatch),
+        }
+    }
+}
+
+impl NoShortCircuitLogicalOr for Value {
+    type Output = Result<Value, RuntimeError>;
+
+    fn logical_or(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (BoolValue(l), BoolValue(r)) => Ok(BoolValue(l || r)),
             _ => Err(RuntimeError::TypeMismatch),
         }
     }
