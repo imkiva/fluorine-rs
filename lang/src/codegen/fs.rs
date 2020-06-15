@@ -7,7 +7,7 @@ use crate::{
         Decl,
         Decl::LetDecl,
         Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},
+        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
         Lit,
         Lit::{LitBool, LitNumber, LitString},
         MatchCase, Pattern,
@@ -102,7 +102,7 @@ impl TargetFs for Atom {
 impl TargetFs for Expr {
     fn codegen_to_fs(self: Self) -> String {
         match self {
-            Expr::Unit => "()".to_string(),
+            Unit => "()".to_string(),
             AtomExpr(atom) => atom.codegen_to_fs(),
             UnaryExpr(op, operand) => format!("{}{}", op, operand.codegen_to_fs()),
             BinaryExpr(op, lhs, rhs) => {

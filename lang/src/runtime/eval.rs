@@ -13,7 +13,7 @@ use crate::{
         Decl,
         Decl::LetDecl,
         Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},
+        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
         Lit,
         Lit::{LitBool, LitNumber, LitString},
         MatchCase, Name, Program, ProgramItem,
@@ -22,7 +22,7 @@ use crate::{
 };
 
 use crate::{
-    runtime::{pattern::Matcher, Context, RuntimeError, Scope, Value},
+    runtime::{pattern::Matcher, Context, RuntimeError, Scope, Value, Value::UnitValue},
     syntax::pe::{PEContext, PartialEval},
 };
 use std::{collections::VecDeque, ops::Not};
@@ -76,6 +76,7 @@ impl Eval for Decl {
 impl Eval for Expr {
     fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
         match self {
+            Unit => Ok(Some(UnitValue)),
             AtomExpr(atom) => atom.eval_into(ctx),
             UnaryExpr(op, operand) => match op.as_str() {
                 "!" => {
@@ -117,7 +118,6 @@ impl Eval for Expr {
             MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
 
             DBI(_) => Err(DanglingDBI),
-            _ => unreachable!("Internal Error"),
         }
     }
 }
@@ -272,6 +272,7 @@ impl PEContext for Context {
             Ok(BoolValue(b)) => Some(AtomExpr(AtomLit(LitBool(b)))),
             Ok(StringValue(s)) => Some(AtomExpr(AtomLit(LitString(s)))),
             Ok(LambdaValue(argc, dbi, body)) => Some(AtomExpr(AtomLambda(argc, dbi, body))),
+            Ok(UnitValue) => Some(Unit),
             _ => None,
         }
     }

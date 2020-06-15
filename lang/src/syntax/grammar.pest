@@ -34,7 +34,7 @@ expr_unary = { unary_op ~ expr_unary
              | expr_atom ~ expr_apply*
              }
 
-expr_atom = { "(" ~ expr ~ ")"
+expr_atom = { "(" ~ expr? ~ ")"
             | expr_lambda
             | expr_match
             | literal

@@ -1,6 +1,6 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
-    runtime::Value::{BoolValue, LambdaValue, NumberValue, StringValue},
+    runtime::Value::{BoolValue, LambdaValue, NumberValue, StringValue, UnitValue},
     syntax::tree::{ApplyStartDBI, Argc, Atom::AtomLambda, Expr, Expr::AtomExpr, Name},
 };
 use std::{
@@ -56,6 +56,7 @@ pub struct Scope {
 
 #[derive(Clone)]
 pub enum Value {
+    UnitValue,
     NumberValue(f64),
     BoolValue(bool),
     StringValue(String),
@@ -65,6 +66,7 @@ pub enum Value {
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            UnitValue => write!(f, "() :: Unit"),
             NumberValue(v) => write!(f, "{} :: Number", v),
             BoolValue(v) => write!(f, "{} :: Bool", v),
             StringValue(v) => write!(f, "{} :: String", v),

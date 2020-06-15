@@ -1,6 +1,6 @@
 use crate::syntax::tree::{
     Atom::{AtomId, AtomLambda, AtomLit},
-    Expr::{ApplyExpr, AtomExpr, BinaryExpr, UnaryExpr},
+    Expr::{ApplyExpr, AtomExpr, BinaryExpr, UnaryExpr, DBI},
     Lit::{LitBool, LitNumber},
     ProgramItem::{DeclItem, ExprItem},
     *,
@@ -177,8 +177,8 @@ fn fold_apply(f: Expr, a: Expr, ctx: Option<&dyn PEContext>) -> Expr {
 /// Consider reuse the standard version in the future.
 fn subst(dbi: i32, expr: Expr, replacement: &Expr, ctx: Option<&dyn PEContext>) -> Expr {
     match &expr {
-        Expr::DBI(i) if dbi == *i => replacement.clone(),
-        Expr::DBI(_) => expr,
+        DBI(i) if dbi == *i => replacement.clone(),
+        DBI(_) => expr,
 
         UnaryExpr(op, unary) => UnaryExpr(
             op.clone(),

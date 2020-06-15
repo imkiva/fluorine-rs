@@ -126,14 +126,19 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
 }
 
 fn parse_expr_atom(node: Pair<Rule>) -> Expr {
-    let child = node.into_inner().next().unwrap();
-    match child.as_rule() {
-        Rule::expr => parse_expr(child),
-        Rule::expr_lambda => parse_lambda(child),
-        Rule::expr_match => parse_match(child),
-        Rule::id => AtomExpr(AtomId(child.as_str().to_owned())),
-        Rule::literal => AtomExpr(AtomLit(parse_lit(child))),
-        _ => unreachable!("expr primary inner should be expr_quoted, expr_lambda, id or literal"),
+    let child = node.into_inner().next();
+    match child {
+        None => Expr::Unit,
+        Some(child) => match child.as_rule() {
+            Rule::expr => parse_expr(child),
+            Rule::expr_lambda => parse_lambda(child),
+            Rule::expr_match => parse_match(child),
+            Rule::id => AtomExpr(AtomId(child.as_str().to_owned())),
+            Rule::literal => AtomExpr(AtomLit(parse_lit(child))),
+            _ => {
+                unreachable!("expr primary inner should be expr_quoted, expr_lambda, id or literal")
+            }
+        },
     }
 }
 
