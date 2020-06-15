@@ -84,7 +84,6 @@ impl std::fmt::Display for Value {
                 write!(f, "{}", code)
             }
             EnumCtor(variant, _, fields) | EnumValue(variant, fields) => {
-                println!("{:#?}", self);
                 write!(f, "{}(", variant.name.as_str())?;
                 let mut item = Vec::with_capacity(variant.fields as usize);
                 for field in fields {

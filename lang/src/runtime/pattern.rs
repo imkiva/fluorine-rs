@@ -26,14 +26,12 @@ impl Matcher for MatchCase {
 
     fn try_match(self, input: &Self::Input) -> Option<(Self::Records, Self::Selected)> {
         match (self.0, input) {
-            (Pattern::PatternWildcard, _) => Some(((), self.1)),
-            (Pattern::PatternLit(LitBool(lhs)), BoolValue(rhs)) if lhs == *rhs => {
+            (Pattern::PatWildcard, _) => Some(((), self.1)),
+            (Pattern::PatLit(LitBool(lhs)), BoolValue(rhs)) if lhs == *rhs => Some(((), self.1)),
+            (Pattern::PatLit(LitNumber(lhs)), NumberValue(rhs)) if lhs == *rhs => {
                 Some(((), self.1))
             }
-            (Pattern::PatternLit(LitNumber(lhs)), NumberValue(rhs)) if lhs == *rhs => {
-                Some(((), self.1))
-            }
-            (Pattern::PatternLit(LitString(lhs)), StringValue(rhs)) if lhs == *rhs => {
+            (Pattern::PatLit(LitString(lhs)), StringValue(rhs)) if lhs == *rhs => {
                 Some(((), self.1))
             }
             _ => None,

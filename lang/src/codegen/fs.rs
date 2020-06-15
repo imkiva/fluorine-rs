@@ -72,8 +72,11 @@ impl TargetFs for MatchCase {
 impl TargetFs for Pattern {
     fn codegen_to_fs(self: Self) -> String {
         match self {
-            Pattern::PatternLit(lit) => lit.codegen_to_fs(),
-            Pattern::PatternWildcard => format!("_"),
+            Pattern::PatLit(lit) => lit.codegen_to_fs(),
+            Pattern::PatWildcard => format!("_"),
+            Pattern::PatVariant(variant) => {
+                format!("{}({})", variant.name, variant.fields.join(", "))
+            }
         }
     }
 }

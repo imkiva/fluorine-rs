@@ -35,8 +35,9 @@ pub struct MatchCase(pub Pattern, pub Expr);
 
 #[derive(Debug, Clone)]
 pub enum Pattern {
-    PatternLit(Lit),
-    PatternWildcard,
+    PatLit(Lit),
+    PatVariant(PatEnumVariant),
+    PatWildcard,
 }
 
 #[derive(Debug)]
@@ -49,6 +50,12 @@ pub enum Decl {
 pub struct EnumVariant {
     pub name: String,
     pub fields: i32,
+}
+
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
+pub struct PatEnumVariant {
+    pub name: String,
+    pub fields: Vec<String>,
 }
 
 #[derive(Debug)]

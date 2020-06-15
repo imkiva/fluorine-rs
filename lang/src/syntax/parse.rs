@@ -3,7 +3,7 @@ use crate::syntax::tree::{
     Decl::*,
     Expr::*,
     Lit::*,
-    Pattern::{PatternLit, PatternWildcard},
+    Pattern::{PatLit, PatVariant, PatWildcard},
     ProgramItem::*,
     *,
 };
@@ -209,10 +209,11 @@ fn parse_match_case(match_cases: Pairs<Rule>) -> Vec<MatchCase> {
 fn parse_pattern(pat: Pair<Rule>) -> Pattern {
     match pat.into_inner().next() {
         Some(non_wildcard) => match non_wildcard.as_rule() {
-            Rule::literal => PatternLit(parse_lit(non_wildcard)),
+            Rule::literal => PatLit(parse_lit(non_wildcard)),
+            Rule::pat_enum_variant => PatVariant(parse_pat_enum_variant(non_wildcard)),
             _ => unreachable!("internal error: invalid pattern"),
         },
-        _ => PatternWildcard,
+        _ => PatWildcard,
     }
 }
 
@@ -262,6 +263,15 @@ fn parse_enum_variant(node: Pair<Rule>) -> EnumVariant {
     EnumVariant {
         name: id.to_owned(),
         fields: iter.count() as i32,
+    }
+}
+
+fn parse_pat_enum_variant(node: Pair<Rule>) -> PatEnumVariant {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    PatEnumVariant {
+        name: id.to_owned(),
+        fields: iter.map(|field| field.as_str().to_owned()).collect(),
     }
 }
 
