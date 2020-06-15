@@ -23,18 +23,18 @@ use crate::{
 
 use crate::{
     runtime::{
-        pattern::Matcher, Context, RuntimeError, RuntimeError::TypeMismatch, Scope, Value,
-        Value::UnitValue,
+        pattern::Matcher,
+        Context, RuntimeError,
+        RuntimeError::TypeMismatch,
+        Scope, Value,
+        Value::{EnumCtor, EnumValue, UnitValue},
     },
     syntax::{
         pe::{PEContext, PartialEval},
         tree::{Decl::EnumDecl, EnumVariant},
     },
 };
-use std::{
-    collections::VecDeque,
-    ops::Not,
-};
+use std::{collections::VecDeque, ops::Not};
 
 pub(crate) trait Eval {
     fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError>;
@@ -79,6 +79,22 @@ impl Eval for Decl {
                 Ok(UnitValue)
             }
             EnumDecl(name, variants) => {
+                for variant in &variants {
+                    match variant.fields {
+                        0 => ctx.put_var(
+                            variant.name.clone(),
+                            EnumValue(variant.clone(), Vec::new()),
+                        )?,
+                        _ => ctx.put_var(
+                            variant.name.clone(),
+                            EnumCtor(
+                                variant.clone(),
+                                0,
+                                Vec::with_capacity(variant.fields as usize),
+                            ),
+                        )?,
+                    }
+                }
                 ctx.put_enum(name, variants)?;
                 Ok(UnitValue)
             }
@@ -271,9 +287,7 @@ impl Context {
     pub fn new() -> Context {
         let mut stack = VecDeque::new();
         stack.push_front(Scope::new());
-        Context {
-            stack,
-        }
+        Context { stack }
     }
 
     pub fn source(&mut self, input: Program) -> Result<Value, RuntimeError> {
@@ -340,12 +354,13 @@ impl Scope {
 }
 
 fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeError> {
+    // We should eval the arg into a normalized form as we are binding
+    // the arg to the DBI(dbi) expr
+    let arg = arg.partial_eval_with(Some(ctx));
+
     match f.eval_into(ctx)? {
         LambdaValue(argc, dbi, body) => {
             debug_assert_ne!(argc, dbi);
-            // We should eval the arg into a normalized form as we are binding
-            // the arg to the DBI(dbi) expr
-            let arg = arg.partial_eval_with(Some(ctx));
             let new_body = body.subst(dbi, &arg).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
                 ctx.new_scope();
@@ -362,6 +377,19 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
                 Ok(LambdaValue(argc, dbi + 1, new_body))
             }
         }
+
+        // We only handle enum constructors that has fields,
+        // constructors with no fields are handled in Decl::eval_into()
+        EnumCtor(variant, dbi, mut fields) => {
+            debug_assert_ne!(variant.fields, dbi);
+            fields.push(arg.eval_into(ctx)?);
+            if dbi + 1 == variant.fields {
+                Ok(EnumValue(variant, fields))
+            } else {
+                Ok(EnumCtor(variant, dbi + 1, fields))
+            }
+        }
+
         _ => Err(NotApplicable),
     }
 }

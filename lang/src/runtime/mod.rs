@@ -1,6 +1,8 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
-    runtime::Value::{BoolValue, LambdaValue, NumberValue, StringValue, UnitValue},
+    runtime::Value::{
+        BoolValue, EnumCtor, EnumValue, LambdaValue, NumberValue, StringValue, UnitValue,
+    },
     syntax::tree::{
         ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Name,
     },
@@ -57,13 +59,15 @@ pub struct Scope {
     pub enums: HashMap<Name, Vec<EnumVariant>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Value {
     UnitValue,
     NumberValue(f64),
     BoolValue(bool),
     StringValue(String),
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
+    EnumCtor(EnumVariant, ApplyStartDBI, Vec<Value>),
+    EnumValue(EnumVariant, Vec<Value>),
 }
 
 impl std::fmt::Display for Value {
@@ -78,6 +82,18 @@ impl std::fmt::Display for Value {
                 let code =
                     gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
                 write!(f, "{}", code)
+            }
+            EnumCtor(variant, _, fields) | EnumValue(variant, fields) => {
+                println!("{:#?}", self);
+                write!(f, "{}(", variant.name.as_str())?;
+                let mut item = Vec::with_capacity(variant.fields as usize);
+                for field in fields {
+                    item.push(format!("{}", field));
+                }
+                for _ in item.len()..variant.fields as usize {
+                    item.push("_".to_owned());
+                }
+                write!(f, "{})", item.join(","))
             }
         }
     }

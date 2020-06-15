@@ -45,7 +45,7 @@ pub enum Decl {
     EnumDecl(Name, Vec<EnumVariant>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct EnumVariant {
     pub name: String,
     pub fields: i32,
