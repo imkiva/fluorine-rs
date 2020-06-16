@@ -6,14 +6,15 @@ use crate::syntax::tree::{
     ProgramItem::{DeclItem, ExprItem},
     *,
 };
+use crate::syntax::tree::Expr::MatchExpr;
 
 pub trait PEContext {
     fn try_resolve_constant(&self, name: &str) -> Option<Expr>;
 }
 
 pub trait PartialEval
-where
-    Self: std::marker::Sized,
+    where
+        Self: std::marker::Sized,
 {
     type Output;
 
@@ -24,7 +25,7 @@ where
     fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output;
 }
 
-impl<T: PartialEval<Output = T>> PartialEval for Box<T> {
+impl<T: PartialEval<Output=T>> PartialEval for Box<T> {
     type Output = Box<T>;
 
     fn partial_eval_with(self: Self, ctx: Option<&dyn PEContext>) -> Self::Output {
@@ -32,7 +33,7 @@ impl<T: PartialEval<Output = T>> PartialEval for Box<T> {
     }
 }
 
-impl<T: PartialEval<Output = T>> PartialEval for Vec<T> {
+impl<T: PartialEval<Output=T>> PartialEval for Vec<T> {
     type Output = Vec<T>;
 
     fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
@@ -81,6 +82,11 @@ impl PartialEval for Expr {
             ApplyExpr(f, a) => {
                 fold_apply(*f.partial_eval_with(ctx), *a.partial_eval_with(ctx), ctx)
             }
+
+            MatchExpr(matchee, cases) => MatchExpr(
+                matchee.partial_eval_with(ctx),
+                cases,
+            ),
 
             _ => self,
         }
@@ -210,7 +216,11 @@ fn subst(dbi: i32, expr: Expr, replacement: &Expr, ctx: Option<&dyn PEContext>) 
             ctx,
         ),
 
-        // TODO: partial evaluation MatchExpr
+        MatchExpr(matchee, cases) => MatchExpr(
+            Box::new(subst(dbi, *matchee, replacement, ctx).partial_eval_with(ctx)),
+            cases,
+        ),
+
         _ => expr,
     }
 }
