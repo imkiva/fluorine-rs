@@ -42,32 +42,32 @@ impl Subst for Expr {
     type Output = Expr;
 
     fn subst(self: Self, dbi: i32, replacement: &Expr) -> Self::Output {
-        match &self {
-            DBI(i) if dbi == *i => replacement.clone(),
+        match self {
+            DBI(i) if dbi == i => replacement.clone(),
             DBI(_) => self,
 
-            UnaryExpr(op, unary) => UnaryExpr(op.clone(), unary.clone().subst(dbi, replacement)),
+            UnaryExpr(op, unary) => UnaryExpr(op.clone(), unary.subst(dbi, replacement)),
 
             BinaryExpr(op, lhs, rhs) => BinaryExpr(
-                op.clone(),
-                lhs.clone().subst(dbi, replacement),
-                rhs.clone().subst(dbi, replacement),
+                op,
+                lhs.subst(dbi, replacement),
+                rhs.subst(dbi, replacement),
             ),
 
             AtomExpr(AtomLambda(nested_argc, nested_dbi, nested_body)) => AtomExpr(AtomLambda(
-                *nested_argc,
-                *nested_dbi,
-                nested_body.clone().subst(nested_argc + dbi, replacement),
+                nested_argc,
+                nested_dbi,
+                nested_body.subst(nested_argc + dbi, replacement),
             )),
 
             ApplyExpr(f, arg) => ApplyExpr(
-                f.clone().subst(dbi, replacement),
-                arg.clone().subst(dbi, replacement),
+                f.subst(dbi, replacement),
+                arg.subst(dbi, replacement),
             ),
 
             MatchExpr(matchee, cases) => MatchExpr(
-                matchee.clone().subst(dbi, replacement),
-                cases.clone().subst(dbi, replacement),
+                matchee.subst(dbi, replacement),
+                cases.subst(dbi, replacement),
             ),
 
             _ => self,

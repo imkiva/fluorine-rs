@@ -98,9 +98,9 @@ let_decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
 
 enum_decl = { "enum" ~ id ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
 
-enum_variant = { id ~ ("(" ~ field_placeholder* ~ ")")? }
+enum_variant = { id ~ ("(" ~ (field_placeholder ~ ","?)* ~ ")")? }
 
-pat_enum_variant = { id ~ ("(" ~ id* ~ ")")? }
+pat_enum_variant = { id ~ ("(" ~ (id ~ ","?)* ~ ")")? }
 
 field_placeholder = { "_" }
 
