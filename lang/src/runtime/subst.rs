@@ -46,7 +46,7 @@ impl Subst for Expr {
             DBI(i) if dbi == i => replacement.clone(),
             DBI(_) => self,
 
-            UnaryExpr(op, unary) => UnaryExpr(op.clone(), unary.subst(dbi, replacement)),
+            UnaryExpr(op, unary) => UnaryExpr(op, unary.subst(dbi, replacement)),
 
             BinaryExpr(op, lhs, rhs) => BinaryExpr(
                 op,
