@@ -8,7 +8,7 @@ pub struct Config {
 impl Config {
     pub(crate) fn new() -> Self {
         Config {
-            opt_level: OptimizeLevel::Aggressive,
+            opt_level: OptimizeLevel::Normal,
             dump_ast: false,
         }
     }

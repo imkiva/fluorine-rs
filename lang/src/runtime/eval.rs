@@ -305,13 +305,13 @@ impl Context {
     }
 
     fn get_var(&self, name: &str) -> Result<Value, RuntimeError> {
-        self.stack
-            .front()
-            .ok_or(StackUnderflow)?
-            .vars
-            .get(name)
-            .map(|v| v.clone())
-            .ok_or(VariableNotFound(name.to_owned()))
+        for scope in &self.stack {
+            if let Some(v) = scope.vars.get(name) {
+                return Ok(v.clone());
+            }
+        }
+
+        Err(VariableNotFound(name.to_owned()))
     }
 
     fn put_enum(&mut self, name: String, variants: Vec<EnumVariant>) -> Result<(), RuntimeError> {

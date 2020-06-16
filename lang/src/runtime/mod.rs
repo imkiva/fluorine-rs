@@ -42,10 +42,12 @@ impl std::fmt::Display for RuntimeError {
     }
 }
 
+#[derive(Debug)]
 pub struct Context {
     pub stack: VecDeque<Scope>,
 }
 
+#[derive(Debug)]
 pub struct Scope {
     pub vars: HashMap<Name, Value>,
     pub enums: HashMap<Name, Vec<EnumVariant>>,
