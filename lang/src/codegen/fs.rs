@@ -5,9 +5,9 @@ use crate::{
         Atom,
         Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
         Decl,
-        Decl::LetDecl,
-        Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},
+        Decl::{EnumDecl, LetDecl},
+        EnumVariant, Expr,
+        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
         Lit,
         Lit::{LitBool, LitNumber, LitString},
         MatchCase, Pattern,
@@ -72,8 +72,11 @@ impl TargetFs for MatchCase {
 impl TargetFs for Pattern {
     fn codegen_to_fs(self: Self) -> String {
         match self {
-            Pattern::PatternLit(lit) => lit.codegen_to_fs(),
-            Pattern::PatternWildcard => format!("_"),
+            Pattern::PatLit(lit) => lit.codegen_to_fs(),
+            Pattern::PatWildcard => format!("_"),
+            Pattern::PatVariant(variant) => {
+                format!("{}({})", variant.name, variant.fields.join(", "))
+            }
         }
     }
 }
@@ -102,7 +105,7 @@ impl TargetFs for Atom {
 impl TargetFs for Expr {
     fn codegen_to_fs(self: Self) -> String {
         match self {
-            Expr::Unit => "()".to_string(),
+            Unit => "()".to_string(),
             AtomExpr(atom) => atom.codegen_to_fs(),
             UnaryExpr(op, operand) => format!("{}{}", op, operand.codegen_to_fs()),
             BinaryExpr(op, lhs, rhs) => {
@@ -123,7 +126,23 @@ impl TargetFs for Decl {
     fn codegen_to_fs(self: Self) -> String {
         match self {
             LetDecl(name, expr) => format!("let {} = {}\n", name, expr.codegen_to_fs()),
+            EnumDecl(name, variants) => {
+                format!("enum {} {{\n{}\n}}", name, variants.codegen_to_fs())
+            }
         }
+    }
+}
+
+impl TargetFs for EnumVariant {
+    fn codegen_to_fs(self: Self) -> String {
+        format!(
+            "{}({})",
+            self.name,
+            (0..self.fields)
+                .map(|_| "_".to_owned())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
 

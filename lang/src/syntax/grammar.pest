@@ -34,7 +34,7 @@ expr_unary = { unary_op ~ expr_unary
              | expr_atom ~ expr_apply*
              }
 
-expr_atom = { "(" ~ expr ~ ")"
+expr_atom = { "(" ~ expr? ~ ")"
             | expr_lambda
             | expr_match
             | literal
@@ -57,7 +57,7 @@ expr_match = { "match" ~ expr ~ "{" ~ match_case+ ~ "}" }
 
 match_case = { pattern ~ "=>" ~ expr ~ ","? }
 
-pattern = { literal | UNDERLINE }
+pattern = { literal | UNDERLINE | pat_enum_variant }
 
 literal = { number_lit
           | bool_lit
@@ -90,7 +90,19 @@ escape = _{ "\\\\"
           | "\\t"
           }
 
-decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
+decl = { let_decl
+       | enum_decl
+       }
+
+let_decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
+
+enum_decl = { "enum" ~ id ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
+
+enum_variant = { id ~ ("(" ~ (field_placeholder ~ ","?)* ~ ")")? }
+
+pat_enum_variant = { id ~ ("(" ~ (id ~ ","?)* ~ ")")? }
+
+field_placeholder = { "_" }
 
 id = $ { (ASCII_ALPHA | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 

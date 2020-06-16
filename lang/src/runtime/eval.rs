@@ -2,8 +2,8 @@ use crate::{
     runtime::{
         subst::Subst,
         RuntimeError::{
-            BottomTypedValue, DanglingDBI, DanglingRawLambda, NonExhaustive, NotApplicable,
-            StackUnderflow, VariableNotFound,
+            NonExhaustive, NotApplicable, StackUnderflow,
+            VariableNotFound,
         },
         Value::{BoolValue, LambdaValue, NumberValue, StringValue},
     },
@@ -13,7 +13,7 @@ use crate::{
         Decl,
         Decl::LetDecl,
         Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},
+        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
         Lit,
         Lit::{LitBool, LitNumber, LitString},
         MatchCase, Name, Program, ProgramItem,
@@ -22,23 +22,33 @@ use crate::{
 };
 
 use crate::{
-    runtime::{pattern::Matcher, Context, RuntimeError, Scope, Value},
-    syntax::pe::{PEContext, PartialEval},
+    runtime::{
+        pattern::Matcher,
+        Context, RuntimeError,
+        RuntimeError::TypeMismatch,
+        Scope, Value,
+        Value::{EnumCtor, EnumValue, UnitValue},
+    },
+    syntax::{
+        pe::{PEContext, PartialEval},
+        tree::{Decl::EnumDecl, EnumVariant},
+    },
 };
 use std::{collections::VecDeque, ops::Not};
+use std::collections::HashMap;
 
 pub(crate) trait Eval {
-    fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError>;
+    fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError>;
 }
 
 impl<T: Eval> Eval for Box<T> {
-    fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
+    fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError> {
         (*self).eval_into(ctx)
     }
 }
 
 impl<T: Eval> Eval for Vec<T> {
-    fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
+    fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError> {
         let mut results = Vec::new();
         for expr in self {
             results.push(expr.eval_into(ctx)?);
@@ -47,13 +57,13 @@ impl<T: Eval> Eval for Vec<T> {
         if let Some(r) = results.pop() {
             Ok(r)
         } else {
-            Ok(None)
+            Ok(UnitValue)
         }
     }
 }
 
 impl Eval for ProgramItem {
-    fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
+    fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError> {
         match self {
             ExprItem(expr) => expr.eval_into(ctx),
             DeclItem(decl) => decl.eval_into(ctx),
@@ -62,52 +72,69 @@ impl Eval for ProgramItem {
 }
 
 impl Eval for Decl {
-    fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
+    fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError> {
         match self {
             LetDecl(name, expr) => {
-                let value = expr.eval_into(ctx)?.ok_or(BottomTypedValue)?;
+                let value = expr.eval_into(ctx)?;
                 ctx.put_var(name, value)?;
-                Ok(None)
+                Ok(UnitValue)
+            }
+            EnumDecl(name, variants) => {
+                for variant in &variants {
+                    match variant.fields {
+                        0 => ctx.put_var(
+                            variant.name.clone(),
+                            EnumValue(variant.clone(), Vec::new()),
+                        )?,
+                        _ => ctx.put_var(
+                            variant.name.clone(),
+                            EnumCtor(
+                                variant.clone(),
+                                0,
+                                Vec::with_capacity(variant.fields as usize),
+                            ),
+                        )?,
+                    };
+                }
+                ctx.put_enum(name, variants)?;
+                Ok(UnitValue)
             }
         }
     }
 }
 
 impl Eval for Expr {
-    fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
+    fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError> {
         match self {
+            Unit => Ok(UnitValue),
             AtomExpr(atom) => atom.eval_into(ctx),
             UnaryExpr(op, operand) => match op.as_str() {
                 "!" => {
-                    let val = operand.eval_into(ctx)?.ok_or(BottomTypedValue)?;
-                    Ok(val.not())
+                    let val = operand.eval_into(ctx)?;
+                    Ok(val.not()?)
                 }
                 _ => unreachable!("Unexpected unary operator"),
             },
 
             BinaryExpr(op, lhs, rhs) => {
-                let l = lhs.eval_into(ctx)?.ok_or(BottomTypedValue)?;
-                // logical operators should be short-circuit
-                match op.as_str() {
-                    "&&" => return Ok(None),
-                    "||" => return Ok(None),
-                    _ => (),
-                };
+                let l = lhs.eval_into(ctx)?;
+                let r = rhs.eval_into(ctx)?;
 
-                let r = rhs.eval_into(ctx)?.ok_or(BottomTypedValue)?;
                 match op.as_str() {
-                    "+" => Ok(l + r),
-                    "-" => Ok(l - r),
-                    "*" => Ok(l * r),
-                    "/" => Ok(l / r),
-                    "%" => Ok(l % r),
-                    "^" => Ok(l.pow(r)),
-                    "==" => Ok(Some(BoolValue(l == r))),
-                    "!=" => Ok(Some(BoolValue(l != r))),
-                    ">" => Ok(Some(BoolValue(l > r))),
-                    ">=" => Ok(Some(BoolValue(l >= r))),
-                    "<" => Ok(Some(BoolValue(l < r))),
-                    "<=" => Ok(Some(BoolValue(l <= r))),
+                    "+" => Ok((l + r)?),
+                    "-" => Ok((l - r)?),
+                    "*" => Ok((l * r)?),
+                    "/" => Ok((l / r)?),
+                    "%" => Ok((l % r)?),
+                    "&&" => Ok(l.logical_and(r)?),
+                    "||" => Ok(l.logical_or(r)?),
+                    "^" => Ok((l.pow(r))?),
+                    "==" => Ok(BoolValue(l == r)),
+                    "!=" => Ok(BoolValue(l != r)),
+                    ">" => Ok(BoolValue(l > r)),
+                    ">=" => Ok(BoolValue(l >= r)),
+                    "<" => Ok(BoolValue(l < r)),
+                    "<=" => Ok(BoolValue(l <= r)),
                     _ => unreachable!("Unexpected binary operator"),
                 }
             }
@@ -116,96 +143,95 @@ impl Eval for Expr {
 
             MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
 
-            DBI(_) => Err(DanglingDBI),
-            _ => unreachable!("Internal Error"),
+            DBI(_) => unreachable!("dangling dbi"),
         }
     }
 }
 
 impl Eval for Atom {
-    fn eval_into(self, ctx: &mut Context) -> Result<Option<Value>, RuntimeError> {
+    fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError> {
         match self {
             AtomLit(lit) => lit.eval_into(ctx),
-            AtomId(id) => ctx.get_var(id.as_str()).map(Some),
-            AtomLambda(argc, dbi, body) => Ok(Some(LambdaValue(argc, dbi, body))),
-            AtomRawLambda(_, _) => Err(DanglingRawLambda),
+            AtomId(id) => ctx.get_var(id.as_str()),
+            AtomLambda(argc, dbi, body) => Ok(LambdaValue(argc, dbi, body)),
+            AtomRawLambda(_, _) => unreachable!("dangling raw lambda"),
         }
     }
 }
 
 impl Eval for Lit {
-    fn eval_into(self, _: &mut Context) -> Result<Option<Value>, RuntimeError> {
+    fn eval_into(self, _: &mut Context) -> Result<Value, RuntimeError> {
         match self {
-            LitNumber(l) => Ok(Some(NumberValue(l))),
-            LitString(l) => Ok(Some(StringValue(l))),
-            LitBool(l) => Ok(Some(BoolValue(l))),
+            LitNumber(l) => Ok(NumberValue(l)),
+            LitString(l) => Ok(StringValue(l)),
+            LitBool(l) => Ok(BoolValue(l)),
         }
     }
 }
 
 impl std::ops::Add for Value {
-    type Output = Option<Value>;
+    type Output = Result<Value, RuntimeError>;
 
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l + r)),
-            (StringValue(l), StringValue(r)) => Some(StringValue(l + r.as_str())),
-            _ => None,
+            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l + r)),
+            (StringValue(l), StringValue(r)) => Ok(StringValue(l + r.as_str())),
+            _ => Err(TypeMismatch),
         }
     }
 }
 
 impl std::ops::Sub for Value {
-    type Output = Option<Value>;
+    type Output = Result<Value, RuntimeError>;
 
     fn sub(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l - r)),
-            _ => None,
+            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l - r)),
+            _ => Err(TypeMismatch),
         }
     }
 }
 
 impl std::ops::Mul for Value {
-    type Output = Option<Value>;
+    type Output = Result<Value, RuntimeError>;
 
     fn mul(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l * r)),
-            _ => None,
+            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l * r)),
+            _ => Err(RuntimeError::TypeMismatch),
         }
     }
 }
 
 impl std::ops::Div for Value {
-    type Output = Option<Value>;
+    type Output = Result<Value, RuntimeError>;
 
     fn div(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l / r)),
-            _ => None,
+            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l / r)),
+            _ => Err(RuntimeError::TypeMismatch),
         }
     }
 }
 
 impl std::ops::Rem for Value {
-    type Output = Option<Value>;
+    type Output = Result<Value, RuntimeError>;
 
     fn rem(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l % r)),
-            _ => None,
+            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l % r)),
+            _ => Err(RuntimeError::TypeMismatch),
         }
     }
 }
 
 impl std::ops::Not for Value {
-    type Output = Option<Value>;
+    type Output = Result<Value, RuntimeError>;
 
     fn not(self) -> Self::Output {
         match self {
-            BoolValue(b) => Some(BoolValue(!b)),
-            _ => None,
+            BoolValue(b) => Ok(BoolValue(!b)),
+            _ => Err(RuntimeError::TypeMismatch),
         }
     }
 }
@@ -216,12 +242,44 @@ trait Pow {
 }
 
 impl Pow for Value {
-    type Output = Option<Value>;
+    type Output = Result<Value, RuntimeError>;
 
     fn pow(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Some(NumberValue(l.powf(r))),
-            _ => None,
+            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l.powf(r))),
+            _ => Err(RuntimeError::TypeMismatch),
+        }
+    }
+}
+
+trait NoShortCircuitLogicalAnd {
+    type Output;
+    fn logical_and(self, rhs: Self) -> Self::Output;
+}
+
+trait NoShortCircuitLogicalOr {
+    type Output;
+    fn logical_or(self, rhs: Self) -> Self::Output;
+}
+
+impl NoShortCircuitLogicalAnd for Value {
+    type Output = Result<Value, RuntimeError>;
+
+    fn logical_and(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (BoolValue(l), BoolValue(r)) => Ok(BoolValue(l && r)),
+            _ => Err(RuntimeError::TypeMismatch),
+        }
+    }
+}
+
+impl NoShortCircuitLogicalOr for Value {
+    type Output = Result<Value, RuntimeError>;
+
+    fn logical_or(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (BoolValue(l), BoolValue(r)) => Ok(BoolValue(l || r)),
+            _ => Err(RuntimeError::TypeMismatch),
         }
     }
 }
@@ -233,27 +291,36 @@ impl Context {
         Context { stack }
     }
 
-    pub fn source(&mut self, input: Program) -> Result<Option<Value>, RuntimeError> {
+    pub fn source(&mut self, input: Program) -> Result<Value, RuntimeError> {
         input.eval_into(self)
     }
 
-    fn put_var(&mut self, name: Name, value: Value) -> Result<(), RuntimeError> {
-        self.stack
+    fn put_var(&mut self, name: Name, value: Value) -> Result<Option<Value>, RuntimeError> {
+        Ok(self
+            .stack
             .front_mut()
             .ok_or(StackUnderflow)?
             .vars
-            .insert(name, value);
-        Ok(())
+            .insert(name, value))
     }
 
     fn get_var(&self, name: &str) -> Result<Value, RuntimeError> {
+        for scope in &self.stack {
+            if let Some(v) = scope.vars.get(name) {
+                return Ok(v.clone());
+            }
+        }
+
+        Err(VariableNotFound(name.to_owned()))
+    }
+
+    fn put_enum(&mut self, name: String, variants: Vec<EnumVariant>) -> Result<(), RuntimeError> {
         self.stack
-            .front()
+            .front_mut()
             .ok_or(StackUnderflow)?
-            .vars
-            .get(name)
-            .map(|v| v.clone())
-            .ok_or(VariableNotFound(name.to_owned()))
+            .enums
+            .insert(name, variants);
+        Ok(())
     }
 
     fn new_scope(&mut self) {
@@ -272,6 +339,7 @@ impl PEContext for Context {
             Ok(BoolValue(b)) => Some(AtomExpr(AtomLit(LitBool(b)))),
             Ok(StringValue(s)) => Some(AtomExpr(AtomLit(LitString(s)))),
             Ok(LambdaValue(argc, dbi, body)) => Some(AtomExpr(AtomLambda(argc, dbi, body))),
+            Ok(UnitValue) => Some(Unit),
             _ => None,
         }
     }
@@ -281,29 +349,49 @@ impl Scope {
     fn new() -> Scope {
         Scope {
             vars: Default::default(),
+            enums: Default::default(),
         }
     }
 }
 
-fn eval_apply(ctx: &mut Context, f: Expr, a: Expr) -> Result<Option<Value>, RuntimeError> {
+fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeError> {
+    // We should eval the arg into a normalized form as we are binding
+    // the arg to the DBI(dbi) expr
+    let arg = arg.partial_eval_with(Some(ctx));
+
     match f.eval_into(ctx)? {
-        Some(LambdaValue(argc, dbi, body)) => {
+        LambdaValue(argc, dbi, body) => {
             debug_assert_ne!(argc, dbi);
-            // XXX: should we check whether a evals to be a value?
-            // partial_eval_with() will runtime a into a value, but it
-            // will not throw an error when a doesn't not exists.
-            let new_body = body.subst(dbi, &a).partial_eval_with(Some(ctx));
+            let new_body = body.subst(dbi, &arg).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
                 ctx.new_scope();
-                let result = new_body.eval_into(ctx)?;
+                let result = match new_body.eval_into(ctx) {
+                    Ok(value) => value,
+                    err => {
+                        ctx.pop_scope()?;
+                        return err;
+                    }
+                };
                 ctx.pop_scope()?;
                 Ok(result)
             } else {
-                Ok(Some(LambdaValue(argc, dbi + 1, new_body)))
+                Ok(LambdaValue(argc, dbi + 1, new_body))
             }
         }
-        Some(_) => Err(NotApplicable),
-        None => Err(BottomTypedValue),
+
+        // We only handle enum constructors that has fields,
+        // constructors with no fields are handled in Decl::eval_into()
+        EnumCtor(variant, dbi, mut fields) => {
+            debug_assert_ne!(variant.fields, dbi);
+            fields.push(arg.eval_into(ctx)?);
+            if dbi + 1 == variant.fields {
+                Ok(EnumValue(variant, fields))
+            } else {
+                Ok(EnumCtor(variant, dbi + 1, fields))
+            }
+        }
+
+        _ => Err(NotApplicable),
     }
 }
 
@@ -311,11 +399,26 @@ fn eval_match(
     ctx: &mut Context,
     matchee: Expr,
     cases: Vec<MatchCase>,
-) -> Result<Option<Value>, RuntimeError> {
-    let value = matchee.eval_into(ctx)?.ok_or(BottomTypedValue)?;
+) -> Result<Value, RuntimeError> {
+    let value = matchee.eval_into(ctx)?;
 
     match cases.try_match(&value) {
-        Some((_, result)) => result.eval_into(ctx),
+        Some((records, result)) => {
+            // We cannot just override the scope neither create a new scope,
+            // instead we should backup the vars that will be overwritten
+            // and restore them when match ends.
+            let mut backup = HashMap::with_capacity(records.len());
+            for (name, value) in records {
+                backup.insert(name.clone(), ctx.put_var(name, value)?);
+            }
+            let result = result.eval_into(ctx);
+            for (name, value) in backup {
+                if let Some(value) = value {
+                    ctx.put_var(name, value)?;
+                }
+            }
+            result
+        }
         _ => Err(NonExhaustive),
     }
 }

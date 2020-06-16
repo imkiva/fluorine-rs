@@ -1,7 +1,11 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
-    runtime::Value::{BoolValue, LambdaValue, NumberValue, StringValue},
-    syntax::tree::{ApplyStartDBI, Argc, Atom::AtomLambda, Expr, Expr::AtomExpr, Name},
+    runtime::Value::{
+        BoolValue, EnumCtor, EnumValue, LambdaValue, NumberValue, StringValue, UnitValue,
+    },
+    syntax::tree::{
+        ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Name,
+    },
 };
 use std::{
     cmp::Ordering,
@@ -15,56 +19,55 @@ pub mod subst;
 
 #[derive(Debug)]
 pub enum RuntimeError {
-    DanglingDBI,
-    DanglingRawLambda,
     StackUnderflow,
     VariableNotFound(String),
     NotApplicable,
     NonExhaustive,
-    BottomTypedValue,
+    TypeMismatch,
 }
 
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RuntimeError::DanglingDBI => {
-                write!(f, "InternalError: detected dangling DBI outside lambda")
-            }
-            RuntimeError::DanglingRawLambda => {
-                write!(f, "InternalError: detected unresolved lambda")
-            }
             RuntimeError::StackUnderflow => write!(f, "RuntimeError: stack underflow"),
             RuntimeError::VariableNotFound(id) => {
                 write!(f, "NameError: variable '{}' not found", id)
             }
-            RuntimeError::BottomTypedValue => {
-                write!(f, "TypeError: try to produce bottom typed value")
-            }
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
+            RuntimeError::TypeMismatch => {
+                write!(f, "TypeError: operators can only apply to same types")
+            }
         }
     }
 }
 
+#[derive(Debug)]
 pub struct Context {
-    stack: VecDeque<Scope>,
+    pub stack: VecDeque<Scope>,
 }
 
+#[derive(Debug)]
 pub struct Scope {
-    vars: HashMap<Name, Value>,
+    pub vars: HashMap<Name, Value>,
+    pub enums: HashMap<Name, Vec<EnumVariant>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Value {
+    UnitValue,
     NumberValue(f64),
     BoolValue(bool),
     StringValue(String),
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
+    EnumCtor(EnumVariant, ApplyStartDBI, Vec<Value>),
+    EnumValue(EnumVariant, Vec<Value>),
 }
 
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            UnitValue => write!(f, "() :: Unit"),
             NumberValue(v) => write!(f, "{} :: Number", v),
             BoolValue(v) => write!(f, "{} :: Bool", v),
             StringValue(v) => write!(f, "{} :: String", v),
@@ -73,6 +76,17 @@ impl std::fmt::Display for Value {
                 let code =
                     gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
                 write!(f, "{}", code)
+            }
+            EnumCtor(variant, _, fields) | EnumValue(variant, fields) => {
+                write!(f, "{}(", variant.name.as_str())?;
+                let mut item = Vec::with_capacity(variant.fields as usize);
+                for field in fields {
+                    item.push(format!("{}", field));
+                }
+                for _ in item.len()..variant.fields as usize {
+                    item.push("_".to_owned());
+                }
+                write!(f, "{})", item.join(","))
             }
         }
     }
