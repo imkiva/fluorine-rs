@@ -2,7 +2,7 @@ use crate::{
     runtime::{
         subst::Subst,
         RuntimeError::{
-            DanglingDBI, DanglingRawLambda, NonExhaustive, NotApplicable, StackUnderflow,
+            NonExhaustive, NotApplicable, StackUnderflow,
             VariableNotFound,
         },
         Value::{BoolValue, LambdaValue, NumberValue, StringValue},
@@ -143,7 +143,7 @@ impl Eval for Expr {
 
             MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
 
-            DBI(_) => Err(DanglingDBI),
+            DBI(_) => unreachable!("dangling dbi"),
         }
     }
 }
@@ -154,7 +154,7 @@ impl Eval for Atom {
             AtomLit(lit) => lit.eval_into(ctx),
             AtomId(id) => ctx.get_var(id.as_str()),
             AtomLambda(argc, dbi, body) => Ok(LambdaValue(argc, dbi, body)),
-            AtomRawLambda(_, _) => Err(DanglingRawLambda),
+            AtomRawLambda(_, _) => unreachable!("dangling raw lambda"),
         }
     }
 }

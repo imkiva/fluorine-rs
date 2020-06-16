@@ -19,8 +19,6 @@ pub mod subst;
 
 #[derive(Debug)]
 pub enum RuntimeError {
-    DanglingDBI,
-    DanglingRawLambda,
     StackUnderflow,
     VariableNotFound(String),
     NotApplicable,
@@ -31,12 +29,6 @@ pub enum RuntimeError {
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RuntimeError::DanglingDBI => {
-                write!(f, "InternalError: detected dangling DBI outside lambda")
-            }
-            RuntimeError::DanglingRawLambda => {
-                write!(f, "InternalError: detected unresolved lambda")
-            }
             RuntimeError::StackUnderflow => write!(f, "RuntimeError: stack underflow"),
             RuntimeError::VariableNotFound(id) => {
                 write!(f, "NameError: variable '{}' not found", id)
