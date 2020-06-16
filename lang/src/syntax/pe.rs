@@ -178,35 +178,35 @@ fn fold_apply(f: Expr, a: Expr, ctx: Option<&dyn PEContext>) -> Expr {
 /// This is a specialized version of Subst::subst
 /// Consider reuse the standard version in the future.
 fn subst(dbi: i32, expr: Expr, replacement: &Expr, ctx: Option<&dyn PEContext>) -> Expr {
-    match &expr {
-        DBI(i) if dbi == *i => replacement.clone(),
+    match expr {
+        DBI(i) if dbi == i => replacement.clone(),
         DBI(_) => expr,
 
         UnaryExpr(op, unary) => UnaryExpr(
-            op.clone(),
-            Box::new(subst(dbi, *unary.clone(), replacement, ctx).partial_eval_with(ctx)),
+            op,
+            Box::new(subst(dbi, *unary, replacement, ctx).partial_eval_with(ctx)),
         ),
 
         BinaryExpr(op, lhs, rhs) => BinaryExpr(
             op.clone(),
-            Box::new(subst(dbi, *lhs.clone(), replacement, ctx).partial_eval_with(ctx)),
-            Box::new(subst(dbi, *rhs.clone(), replacement, ctx).partial_eval_with(ctx)),
+            Box::new(subst(dbi, *lhs, replacement, ctx).partial_eval_with(ctx)),
+            Box::new(subst(dbi, *rhs, replacement, ctx).partial_eval_with(ctx)),
         ),
 
         AtomExpr(AtomLambda(nested_argc, nested_dbi, nested_body)) => {
             let new_body: Vec<Expr> = nested_body
                 .into_iter()
                 .map(|ret_expr| {
-                    subst(nested_argc + dbi, ret_expr.clone(), replacement, ctx)
+                    subst(nested_argc + dbi, ret_expr, replacement, ctx)
                         .partial_eval_with(ctx)
                 })
                 .collect();
-            AtomExpr(AtomLambda(*nested_argc, *nested_dbi, new_body))
+            AtomExpr(AtomLambda(nested_argc, nested_dbi, new_body))
         }
 
         ApplyExpr(f, arg) => fold_apply(
-            subst(dbi, *f.clone(), replacement, ctx).partial_eval_with(ctx),
-            subst(dbi, *arg.clone(), replacement, ctx).partial_eval_with(ctx),
+            subst(dbi, *f, replacement, ctx).partial_eval_with(ctx),
+            subst(dbi, *arg, replacement, ctx).partial_eval_with(ctx),
             ctx,
         ),
 
