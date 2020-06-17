@@ -5,3 +5,4 @@ extern crate pest_derive;
 pub mod codegen;
 pub mod runtime;
 pub mod syntax;
+pub mod ffi;
