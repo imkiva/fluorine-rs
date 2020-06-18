@@ -1,10 +1,7 @@
 use crate::{
     runtime::{
         subst::Subst,
-        RuntimeError::{
-            NonExhaustive, NotApplicable, StackUnderflow,
-            VariableNotFound,
-        },
+        RuntimeError::{NonExhaustive, NotApplicable, StackUnderflow, VariableNotFound},
         Value::{BoolValue, LambdaValue, NumberValue, StringValue},
     },
     syntax::tree::{
@@ -34,8 +31,10 @@ use crate::{
         tree::{Decl::EnumDecl, EnumVariant},
     },
 };
-use std::{collections::VecDeque, ops::Not};
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::Not,
+};
 
 pub(crate) trait Eval {
     fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError>;

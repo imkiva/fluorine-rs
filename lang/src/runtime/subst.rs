@@ -48,11 +48,9 @@ impl Subst for Expr {
 
             UnaryExpr(op, unary) => UnaryExpr(op, unary.subst(dbi, replacement)),
 
-            BinaryExpr(op, lhs, rhs) => BinaryExpr(
-                op,
-                lhs.subst(dbi, replacement),
-                rhs.subst(dbi, replacement),
-            ),
+            BinaryExpr(op, lhs, rhs) => {
+                BinaryExpr(op, lhs.subst(dbi, replacement), rhs.subst(dbi, replacement))
+            }
 
             AtomExpr(AtomLambda(nested_argc, nested_dbi, nested_body)) => AtomExpr(AtomLambda(
                 nested_argc,
@@ -60,10 +58,7 @@ impl Subst for Expr {
                 nested_body.subst(nested_argc + dbi, replacement),
             )),
 
-            ApplyExpr(f, arg) => ApplyExpr(
-                f.subst(dbi, replacement),
-                arg.subst(dbi, replacement),
-            ),
+            ApplyExpr(f, arg) => ApplyExpr(f.subst(dbi, replacement), arg.subst(dbi, replacement)),
 
             MatchExpr(matchee, cases) => MatchExpr(
                 matchee.subst(dbi, replacement),
