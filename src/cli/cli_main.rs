@@ -1,3 +1,12 @@
+use rustyline::{
+    completion::{Candidate, Completer},
+    error::ReadlineError,
+    highlight::Highlighter,
+    hint::Hinter,
+    validate::Validator,
+    Context as RContext, Editor, Helper, Result as RResult,
+};
+
 use lang::{
     runtime::Context,
     syntax::{
@@ -8,11 +17,9 @@ use lang::{
 };
 
 use crate::config::Config;
-use rustyline::{error::ReadlineError, Editor};
 
 struct REPL {
-    context: Context,
-    rl: Editor<()>,
+    rl: Editor<REPLHelper>,
     history_file: Option<String>,
     cfg: Config,
     repl_run: bool,
@@ -20,6 +27,79 @@ struct REPL {
     multiline: bool,
     multiline_buffer: Vec<String>,
 }
+
+enum CompleteCandidate {
+    Command(String, String),
+    Var(String),
+}
+
+impl Candidate for CompleteCandidate {
+    fn display(&self) -> &str {
+        match self {
+            CompleteCandidate::Command(cmd, _) => cmd,
+            CompleteCandidate::Var(name) => name,
+        }
+    }
+
+    fn replacement(&self) -> &str {
+        match self {
+            CompleteCandidate::Command(cmd, _) => cmd,
+            CompleteCandidate::Var(name) => name,
+        }
+    }
+}
+
+struct REPLHelper {
+    context: Context,
+}
+
+impl Helper for REPLHelper {}
+
+impl Completer for REPLHelper {
+    type Candidate = CompleteCandidate;
+
+    fn complete(
+        &self,
+        line: &str,
+        _pos: usize,
+        _ctx: &RContext<'_>,
+    ) -> RResult<(usize, Vec<Self::Candidate>)> {
+        if line.starts_with(":") {
+            let commands = vec![
+                (":q", "Quit REPL"),
+                (":{", "Start multi-line mode"),
+                (":}", "End multi-line mode"),
+                (":scope", "Show current scope vars and enums")
+            ];
+            Ok((
+                line.len(),
+                commands
+                    .into_iter()
+                    .filter(|it| it.0.starts_with(line))
+                    .map(|it| (it.0.split_at(line.len()).1, it.1))
+                    .map(|it| CompleteCandidate::Command(it.0.to_owned(), it.1.to_owned()))
+                    .collect(),
+            ))
+        } else {
+            Ok((
+                line.len(),
+                self.context
+                    .stack
+                    .iter()
+                    .flat_map(|it| it.vars.keys())
+                    .map(|it| it.split_at(line.len()).1)
+                    .map(|it| CompleteCandidate::Var(it.to_owned()))
+                    .collect(),
+            ))
+        }
+    }
+}
+
+impl Validator for REPLHelper {}
+
+impl Hinter for REPLHelper {}
+
+impl Highlighter for REPLHelper {}
 
 impl REPL {
     fn new(cfg: Config) -> REPL {
@@ -31,8 +111,7 @@ impl REPL {
             .flatten();
 
         let mut repl = REPL {
-            context: Context::new(),
-            rl: Editor::<()>::new(),
+            rl: Editor::<REPLHelper>::new(),
             history_file,
             cfg,
             repl_run: true,
@@ -45,6 +124,11 @@ impl REPL {
             let _ = repl.rl.load_history(path);
         }
 
+        let helper = REPLHelper {
+            context: Context::new(),
+        };
+
+        repl.rl.set_helper(Some(helper));
         repl
     }
 
@@ -95,7 +179,7 @@ impl REPL {
             }
 
             ":scope" => {
-                let scope = self.context.stack.front().expect("?");
+                let scope = self.rl.helper().unwrap().context.stack.front().expect("?");
                 println!("Enums: ");
                 scope.enums.iter().for_each(|(k, _)| println!("- {}", k));
                 println!();
@@ -110,7 +194,12 @@ impl REPL {
 
     fn run_code(&mut self, line: String) {
         self.rl.add_history_entry(line.as_str());
-        compile_and_run(&self.cfg, &mut self.context, "<stdin>", line.as_str());
+        compile_and_run(
+            &self.cfg,
+            &mut self.rl.helper_mut().unwrap().context,
+            "<stdin>",
+            line.as_str(),
+        );
     }
 }
 
