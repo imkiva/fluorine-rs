@@ -69,7 +69,7 @@ impl Completer for REPLHelper {
                 (":q", "Quit REPL"),
                 (":{", "Start multi-line mode"),
                 (":}", "End multi-line mode"),
-                (":scope", "Show current scope vars and enums")
+                (":scope", "Show current scope vars and enums"),
             ];
             Ok((
                 line.len(),
