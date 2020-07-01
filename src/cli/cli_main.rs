@@ -124,10 +124,11 @@ impl REPL {
             let _ = repl.rl.load_history(path);
         }
 
-        let helper = REPLHelper {
+        let mut helper = REPLHelper {
             context: Context::new(),
         };
 
+        helper.context.load_builtins();
         repl.rl.set_helper(Some(helper));
         repl
     }
@@ -235,6 +236,7 @@ pub(crate) fn cli_main(cfg: Config, input: Option<String>) {
     if let Some(input) = input {
         let src = std::fs::read_to_string(input.as_str()).expect("unable to open file");
         let mut ctx = Context::new();
+        ctx.load_builtins();
         compile_and_run(&cfg, &mut ctx, input.as_str(), src.as_str());
     } else {
         let mut repl = REPL::new(cfg);

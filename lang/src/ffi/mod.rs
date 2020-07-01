@@ -6,6 +6,7 @@ pub type FFIResult = Value;
 pub type FFIFn = fn(FFIParam) -> FFIResult;
 
 pub struct FFIType {
+    pub argc: usize,
     pub closure: FFIFn,
 }
 
@@ -24,7 +25,11 @@ impl Clone for FFIType {
 }
 
 impl FFIType {
-    pub fn boxed(closure: FFIFn) -> Box<Self> {
-        Box::new(Self { closure })
+    pub fn new(argc: usize, closure: FFIFn) -> Self {
+        Self { argc, closure }
+    }
+
+    pub fn boxed(argc: usize, closure: FFIFn) -> Box<Self> {
+        Box::new(Self::new(argc, closure))
     }
 }

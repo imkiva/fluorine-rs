@@ -21,6 +21,7 @@ use crate::{
 use crate::{
     ffi::{FFIFn, FFIType},
     runtime::{
+        builtins::Builtins,
         pattern::Matcher,
         Context, RuntimeError,
         RuntimeError::TypeMismatch,
@@ -287,6 +288,10 @@ impl Context {
         Context { stack }
     }
 
+    pub fn load_builtins(&mut self) {
+        Builtins::init(self)
+    }
+
     pub fn source(&mut self, input: Program) -> Result<Value, RuntimeError> {
         input.eval_into(self)
     }
@@ -319,7 +324,7 @@ impl Context {
         Ok(())
     }
 
-    fn ffi(
+    pub fn ffi(
         &mut self,
         name: String,
         argc: usize,
@@ -327,7 +332,11 @@ impl Context {
     ) -> Result<Option<Value>, RuntimeError> {
         self.put_var(
             name,
-            Value::ForeignLambda(argc, Vec::with_capacity(argc), FFIType::boxed(closure)),
+            Value::ForeignLambda(
+                argc,
+                Vec::with_capacity(argc),
+                FFIType::boxed(argc, closure),
+            ),
         )
     }
 
