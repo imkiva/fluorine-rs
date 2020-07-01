@@ -14,8 +14,10 @@ impl Builtins {
 
 #[fluorine(Builtin)]
 mod builtin_ffi {
-    use super::*;
-    use crate::runtime::{FromValue, IntoValue, Value};
+    use crate::{
+        ffi::*,
+        runtime::{FromValue, IntoValue, Value},
+    };
 
     #[fluorine]
     fn hello(_: ()) -> String {
