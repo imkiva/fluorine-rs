@@ -146,7 +146,7 @@ impl TargetFs for EnumVariant {
     }
 }
 
-fn codegen_lambda(argc: i32, dbi: i32, body: Vec<Expr>) -> String {
+fn codegen_lambda(argc: usize, dbi: usize, body: Vec<Expr>) -> String {
     let (param, body) = (dbi..argc)
         .into_iter()
         .map(|i| (i, format!("a{}", i)))

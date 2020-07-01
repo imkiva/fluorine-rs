@@ -1,7 +1,9 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
+    ffi::FFIType,
     runtime::Value::{
-        BoolValue, EnumCtor, EnumValue, LambdaValue, NumberValue, StringValue, UnitValue,
+        BoolValue, EnumCtor, EnumValue, ForeignLambda, LambdaValue, NumberValue, StringValue,
+        UnitValue,
     },
     syntax::tree::{
         ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Name,
@@ -60,8 +62,9 @@ pub enum Value {
     BoolValue(bool),
     StringValue(String),
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
-    EnumCtor(EnumVariant, ApplyStartDBI, Vec<Value>),
+    EnumCtor(EnumVariant, Vec<Value>),
     EnumValue(EnumVariant, Vec<Value>),
+    ForeignLambda(Argc, Vec<Value>, Box<FFIType>),
 }
 
 impl std::fmt::Display for Value {
@@ -77,7 +80,7 @@ impl std::fmt::Display for Value {
                     gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
                 write!(f, "{}", code)
             }
-            EnumCtor(variant, _, fields) | EnumValue(variant, fields) => {
+            EnumCtor(variant, fields) | EnumValue(variant, fields) => {
                 write!(f, "{}(", variant.name.as_str())?;
                 let mut item = Vec::with_capacity(variant.fields as usize);
                 for field in fields {
@@ -88,6 +91,7 @@ impl std::fmt::Display for Value {
                 }
                 write!(f, "{})", item.join(","))
             }
+            ForeignLambda(_, _, _) => write!(f, "<foreign-lambda>"),
         }
     }
 }

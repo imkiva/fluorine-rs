@@ -262,7 +262,7 @@ fn parse_enum_variant(node: Pair<Rule>) -> EnumVariant {
     let id = iter.next().unwrap().as_str();
     EnumVariant {
         name: id.to_owned(),
-        fields: iter.count() as i32,
+        fields: iter.count(),
     }
 }
 
@@ -304,7 +304,7 @@ fn dbi_lambda_body(
 
     // recursively convert variable name to dbi
     let r = AtomExpr(AtomLambda(
-        names.len() as i32,
+        names.len(),
         0,
         body.iter()
             .map(|raw| dbi_expr(param_stack, raw.clone()))
@@ -356,14 +356,14 @@ fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
     }
 }
 
-fn resolve_param(param_stack: &VecDeque<&Vec<Name>>, name: &str) -> Option<i32> {
+fn resolve_param(param_stack: &VecDeque<&Vec<Name>>, name: &str) -> Option<usize> {
     let mut base_dbi = 0;
 
     for &scope in param_stack {
         if let Some(index) = scope.into_iter().position(|r| r == name) {
-            return Some(base_dbi + index as i32);
+            return Some(base_dbi + index);
         }
-        base_dbi += scope.len() as i32;
+        base_dbi += scope.len();
     }
     None
 }

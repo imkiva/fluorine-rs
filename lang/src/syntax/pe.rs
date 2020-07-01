@@ -179,7 +179,7 @@ fn fold_apply(f: Expr, a: Expr, ctx: Option<&dyn PEContext>) -> Expr {
 
 /// This is a specialized version of Subst::subst
 /// Consider reuse the standard version in the future.
-fn subst(dbi: i32, expr: Expr, replacement: &Expr, ctx: Option<&dyn PEContext>) -> Expr {
+fn subst(dbi: usize, expr: Expr, replacement: &Expr, ctx: Option<&dyn PEContext>) -> Expr {
     match expr {
         DBI(i) if dbi == i => replacement.clone(),
         DBI(_) => expr,
