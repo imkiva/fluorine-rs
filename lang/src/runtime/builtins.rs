@@ -5,7 +5,7 @@ pub struct Builtins {}
 
 impl Builtins {
     pub fn init(ctx: &mut Context) {
-        let map: HashMap<String, FFIType> = fluorine_module_entrance_for_Builtin();
+        let map: HashMap<String, FFIClosure> = fluorine_module_entrance_for_Builtin();
         map.into_iter().for_each(|(k, v)| {
             ctx.ffi(k, v.argc, v.closure).unwrap();
         });

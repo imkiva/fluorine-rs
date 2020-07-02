@@ -85,7 +85,7 @@ fn generate_module_entrance(ffi_mod: String, module: ItemMod) -> TokenStream2 {
                 let argc =
                     syn::parse_str::<syn::Expr>(&format!("{}", func.sig.inputs.len())).unwrap();
                 quote! {
-                    map.insert(#name_string.to_string(), FFIType::new(#argc, #mod_name::#func_name));
+                    map.insert(#name_string.to_string(), FFIClosure::new(#argc, #mod_name::#func_name));
                 }
             })
             .collect::<TokenStream2>()
@@ -99,8 +99,8 @@ fn generate_module_entrance(ffi_mod: String, module: ItemMod) -> TokenStream2 {
         #module
 
         #[no_mangle]
-        pub extern "C" fn #entrance_name() -> std::collections::HashMap<String, FFIType> {
-            let mut map = std::collections::HashMap::<String, FFIType>::default();
+        pub extern "C" fn #entrance_name() -> std::collections::HashMap<String, FFIClosure> {
+            let mut map = std::collections::HashMap::<String, FFIClosure>::default();
             #body;
             map
         }

@@ -1,6 +1,6 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
-    ffi::FFIType,
+    ffi::FFIClosure,
     runtime::Value::{
         BoolValue, EnumCtor, EnumValue, ForeignLambda, LambdaValue, NumberValue, StringValue,
         UnitValue,
@@ -65,7 +65,7 @@ pub enum Value {
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
     EnumCtor(EnumVariant, Vec<Value>),
     EnumValue(EnumVariant, Vec<Value>),
-    ForeignLambda(Argc, Vec<Value>, Box<FFIType>),
+    ForeignLambda(Argc, Vec<Value>, Box<FFIClosure>),
 }
 
 pub trait IntoValue {

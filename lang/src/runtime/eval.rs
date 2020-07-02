@@ -19,7 +19,7 @@ use crate::{
 };
 
 use crate::{
-    ffi::{FFIFn, FFIType},
+    ffi::{FFIFn, FFIClosure},
     runtime::{
         builtins::Builtins,
         pattern::Matcher,
@@ -335,7 +335,7 @@ impl Context {
             Value::ForeignLambda(
                 argc,
                 Vec::with_capacity(argc),
-                FFIType::boxed(argc, closure),
+                FFIClosure::boxed(argc, closure),
             ),
         )
     }
