@@ -342,7 +342,7 @@ impl Context {
             name,
             Value::ForeignLambda(
                 argc,
-                Vec::with_capacity(argc),
+                VecDeque::with_capacity(argc),
                 FFIClosure::boxed(argc, closure),
             ),
         )
@@ -418,7 +418,7 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
 
         ForeignLambda(argc, mut argv, ffi) => {
             debug_assert_ne!(argc as usize, argv.len());
-            argv.push(arg.eval_into(ctx)?);
+            argv.push_back(arg.eval_into(ctx)?);
             if argv.len() == argc as usize {
                 ((*ffi).closure)(argv).map_err(|e| e.into())
             } else {

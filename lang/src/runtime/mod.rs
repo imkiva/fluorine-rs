@@ -68,7 +68,7 @@ pub enum Value {
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
     EnumCtor(EnumType, EnumVariant, Vec<Value>),
     EnumValue(EnumType, EnumVariant, Vec<Value>),
-    ForeignLambda(Argc, Vec<Value>, Box<FFIClosure>),
+    ForeignLambda(Argc, VecDeque<Value>, Box<FFIClosure>),
 }
 
 #[derive(Clone, Debug)]

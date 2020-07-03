@@ -1,7 +1,8 @@
 use crate::runtime::{FromValue, IntoValue, RuntimeError, Value};
 use std::fmt::{Debug, Formatter};
+use std::collections::VecDeque;
 
-pub type FFIParam = Vec<Value>;
+pub type FFIParam = VecDeque<Value>;
 pub type FFIResult = Result<Value, FFIError>;
 pub type FFIFn = fn(FFIParam) -> FFIResult;
 
@@ -23,8 +24,8 @@ pub trait FFIIntoValue {
 }
 
 pub trait FFIFromValue
-where
-    Self: Sized,
+    where
+        Self: Sized,
 {
     fn ffi_from_value(
         value: Value,
@@ -91,8 +92,8 @@ impl FFIIntoValue for FFIResult {
 }
 
 impl<T> FFIIntoValue for T
-where
-    T: IntoValue,
+    where
+        T: IntoValue,
 {
     fn ffi_into_value(self) -> FFIResult {
         Ok(self.into_value())
@@ -100,8 +101,8 @@ where
 }
 
 impl<T> FFIFromValue for T
-where
-    T: FromValue,
+    where
+        T: FromValue,
 {
     fn ffi_from_value(
         value: Value,

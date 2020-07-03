@@ -53,7 +53,7 @@ fn generate_ffi(func: ItemFn) -> TokenStream2 {
         .map(|(ty, idx)| {
             quote! {
                 (<#ty>::ffi_from_value(
-                    param[#idx].clone(),
+                    param.pop_front().unwrap(),
                     #idx,
                     stringify!(#ty).to_string(),
                     "<TODO>".to_string(),
@@ -63,7 +63,7 @@ fn generate_ffi(func: ItemFn) -> TokenStream2 {
         .collect::<TokenStream2>();
 
     let closure = quote! {
-        pub fn #ident(param: FFIParam) -> FFIResult {
+        pub fn #ident(mut param: FFIParam) -> FFIResult {
             #(#attrs)* #vis #constness #unsafety #asyncness #abi
             fn #ffi_closure_name #generics ( #inputs, #variadic ) #output #block
 
