@@ -1,0 +1,16 @@
+root = true
+
+[{*.h,*.c,*.hpp,*.cpp}]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+tab_width = 4
+ij_c_space_before_template_declaration_lt = true
+ij_c_blank_lines_around_method_in_interface = 0
+ij_c_blank_lines_around_field_in_interface = 0
+ij_c_blank_lines_around_properties_in_declaration = 0
+
+[Makefile]
+indent_style = tab
