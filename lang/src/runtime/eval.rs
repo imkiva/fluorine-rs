@@ -19,7 +19,7 @@ use crate::{
 };
 
 use crate::{
-    ffi::{FFIFn, FFIClosure},
+    ffi::{FFIClosure, FFIFn},
     runtime::{
         builtins::Builtins,
         pattern::Matcher,
@@ -412,7 +412,7 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
             debug_assert_ne!(argc as usize, argv.len());
             argv.push(arg.eval_into(ctx)?);
             if argv.len() == argc as usize {
-                Ok(((*ffi).closure)(argv))
+                ((*ffi).closure)(argv).map_err(|e| e.into())
             } else {
                 Ok(ForeignLambda(argc, argv, ffi))
             }

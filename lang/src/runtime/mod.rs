@@ -1,6 +1,6 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
-    ffi::FFIClosure,
+    ffi::{FFIClosure, FFIError},
     runtime::Value::{
         BoolValue, EnumCtor, EnumValue, ForeignLambda, LambdaValue, NumberValue, StringValue,
         UnitValue,
@@ -27,6 +27,7 @@ pub enum RuntimeError {
     NotApplicable,
     NonExhaustive,
     TypeMismatch,
+    FFIError(FFIError),
 }
 
 impl std::fmt::Display for RuntimeError {
@@ -41,6 +42,7 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::TypeMismatch => {
                 write!(f, "TypeError: operators can only apply to same types")
             }
+            RuntimeError::FFIError(err) => write!(f, "FFIError: {}", err),
         }
     }
 }
@@ -76,7 +78,7 @@ pub trait FromValue
 where
     Self: Sized,
 {
-    fn from_value(value: Value) -> Self;
+    fn from_value(value: Value) -> Option<Self>;
 }
 
 impl std::fmt::Display for Value {
@@ -136,8 +138,8 @@ impl IntoValue for Value {
 }
 
 impl FromValue for Value {
-    fn from_value(value: Value) -> Self {
-        value
+    fn from_value(value: Value) -> Option<Self> {
+        Some(value)
     }
 }
 
@@ -154,19 +156,19 @@ impl IntoValue for &str {
 }
 
 impl FromValue for String {
-    fn from_value(value: Value) -> Self {
+    fn from_value(value: Value) -> Option<Self> {
         match value {
-            StringValue(str) => str,
-            _ => panic!("Value type mismatch in from_value()"),
+            StringValue(str) => Some(str),
+            _ => None,
         }
     }
 }
 
 impl FromValue for () {
-    fn from_value(value: Value) -> Self {
+    fn from_value(value: Value) -> Option<Self> {
         match value {
-            UnitValue => (),
-            _ => panic!("Value type mismatch in from_value()"),
+            UnitValue => Some(()),
+            _ => None,
         }
     }
 }
@@ -178,10 +180,10 @@ impl IntoValue for () {
 }
 
 impl FromValue for bool {
-    fn from_value(value: Value) -> Self {
+    fn from_value(value: Value) -> Option<Self> {
         match value {
-            BoolValue(b) => b,
-            _ => panic!("Value type mismatch in from_value()"),
+            BoolValue(b) => Some(b),
+            _ => None,
         }
     }
 }
@@ -205,10 +207,10 @@ macro_rules! to_value {
 macro_rules! from_value {
     ($t:ty) => {
         impl FromValue for $t {
-            fn from_value(value: Value) -> Self {
+            fn from_value(value: Value) -> Option<Self> {
                 match value {
-                    NumberValue(n) => n as $t,
-                    _ => panic!("Value type mismatch in from_value()"),
+                    NumberValue(n) => Some(n as $t),
+                    _ => None,
                 }
             }
         }

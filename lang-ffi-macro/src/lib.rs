@@ -52,7 +52,12 @@ fn generate_ffi(func: ItemFn) -> TokenStream2 {
         })
         .map(|(ty, idx)| {
             quote! {
-                (<#ty>::from_value(param[#idx].clone())),
+                (<#ty>::ffi_from_value(
+                    param[#idx].clone(),
+                    #idx,
+                    stringify!(#ty).to_string(),
+                    "<TODO>".to_string(),
+                )?),
             }
         })
         .collect::<TokenStream2>();
@@ -62,7 +67,7 @@ fn generate_ffi(func: ItemFn) -> TokenStream2 {
             #(#attrs)* #vis #constness #unsafety #asyncness #abi
             fn #ffi_closure_name #generics ( #inputs, #variadic ) #output #block
 
-            #ffi_closure_name(#args).into_value()
+            #ffi_closure_name(#args).ffi_into_value()
         }
     };
 
