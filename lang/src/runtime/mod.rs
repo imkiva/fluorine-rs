@@ -101,10 +101,10 @@ where
 impl std::fmt::Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            UnitValue => write!(f, "() :: Unit"),
-            NumberValue(v) => write!(f, "{} :: Number", v),
-            BoolValue(v) => write!(f, "{} :: Bool", v),
-            StringValue(v) => write!(f, "{} :: String", v),
+            UnitValue => write!(f, "() :: {}", self.get_type()),
+            NumberValue(v) => write!(f, "{} :: {}", v, self.get_type()),
+            BoolValue(v) => write!(f, "{} :: {}", v, self.get_type()),
+            StringValue(v) => write!(f, "{} :: {}", v, self.get_type()),
             LambdaValue(argc, dbi, body) => {
                 let gen = FsCodeGenerator::new();
                 let code =
@@ -144,6 +144,34 @@ impl std::cmp::PartialEq for Value {
             (BoolValue(lhs), BoolValue(rhs)) => lhs == rhs,
             (StringValue(lhs), StringValue(rhs)) => lhs == rhs,
             _ => false,
+        }
+    }
+}
+
+impl Value {
+    pub fn get_type(&self) -> Type {
+        match self {
+            UnitValue => Type::UnitType,
+            NumberValue(_) => Type::NumberType,
+            BoolValue(_) => Type::BoolType,
+            StringValue(_) => Type::StringType,
+            LambdaValue(argc, dbi, _) => Type::LambdaType(argc - dbi),
+            EnumCtor(ty, _, _) => Type::EnumType(ty.clone()),
+            EnumValue(ty, _, _) => Type::EnumType(ty.clone()),
+            ForeignLambda(argc, _, _) => Type::LambdaType(argc.clone()),
+        }
+    }
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::UnitType => write!(f, "Unit"),
+            Type::NumberType => write!(f, "Number"),
+            Type::BoolType => write!(f, "Bool"),
+            Type::StringType => write!(f, "String"),
+            Type::LambdaType(_) => write!(f, "<lambda-type>"),
+            Type::EnumType(ty) => write!(f, "{}", ty.name),
         }
     }
 }

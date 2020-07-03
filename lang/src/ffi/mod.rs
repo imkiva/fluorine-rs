@@ -1,6 +1,8 @@
-use crate::runtime::{FromValue, IntoValue, RuntimeError, Value};
-use std::fmt::{Debug, Formatter};
-use std::collections::VecDeque;
+use crate::runtime::{FromValue, IntoValue, RuntimeError, Type, Value};
+use std::{
+    collections::VecDeque,
+    fmt::{Debug, Formatter},
+};
 
 pub type FFIParam = VecDeque<Value>;
 pub type FFIResult = Result<Value, FFIError>;
@@ -14,7 +16,7 @@ pub struct FFIClosure {
 #[derive(Debug)]
 pub enum FFIError {
     // arg-index, expected, got
-    ArgTypeMismatch(usize, String, String),
+    ArgTypeMismatch(usize, String, Type),
     CustomError(String),
     Panic(String),
 }
@@ -24,14 +26,14 @@ pub trait FFIIntoValue {
 }
 
 pub trait FFIFromValue
-    where
-        Self: Sized,
+where
+    Self: Sized,
 {
     fn ffi_from_value(
         value: Value,
         index: usize,
         expected: String,
-        got: String,
+        got: Type,
     ) -> Result<Self, FFIError>;
 }
 
@@ -70,7 +72,7 @@ impl std::fmt::Display for FFIError {
         match self {
             FFIError::ArgTypeMismatch(i, expected, got) => write!(
                 f,
-                "TypeError: Argument {} type mismatch: expected {}, but got {}",
+                "TypeError: Argument {}: expected '{}', but got '{}'",
                 i, expected, got
             ),
             FFIError::CustomError(reason) => write!(f, "RuntimeError: {}", reason),
@@ -92,8 +94,8 @@ impl FFIIntoValue for FFIResult {
 }
 
 impl<T> FFIIntoValue for T
-    where
-        T: IntoValue,
+where
+    T: IntoValue,
 {
     fn ffi_into_value(self) -> FFIResult {
         Ok(self.into_value())
@@ -101,14 +103,14 @@ impl<T> FFIIntoValue for T
 }
 
 impl<T> FFIFromValue for T
-    where
-        T: FromValue,
+where
+    T: FromValue,
 {
     fn ffi_from_value(
         value: Value,
         index: usize,
         expected: String,
-        got: String,
+        got: Type,
     ) -> Result<Self, FFIError> {
         Self::from_value(value).ok_or(FFIError::ArgTypeMismatch(index, expected, got))
     }

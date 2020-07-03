@@ -52,12 +52,18 @@ fn generate_ffi(func: ItemFn) -> TokenStream2 {
         })
         .map(|(ty, idx)| {
             quote! {
-                (<#ty>::ffi_from_value(
-                    param.pop_front().unwrap(),
-                    #idx,
-                    stringify!(#ty).to_string(),
-                    "<TODO>".to_string(),
-                )?),
+                (
+                    {
+                        let arg = param.pop_front().unwrap();
+                        let t = arg.get_type();
+                        <#ty>::ffi_from_value(
+                            arg,
+                            #idx,
+                            stringify!(#ty).to_string(),
+                            t,
+                        )?
+                    }
+                ),
             }
         })
         .collect::<TokenStream2>();
