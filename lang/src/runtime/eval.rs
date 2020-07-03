@@ -19,12 +19,14 @@ use crate::{
 };
 
 use crate::{
+    ffi::{FFIClosure, FFIFn},
     runtime::{
+        builtins::Builtins,
         pattern::Matcher,
         Context, RuntimeError,
         RuntimeError::TypeMismatch,
         Scope, Value,
-        Value::{EnumCtor, EnumValue, UnitValue},
+        Value::{EnumCtor, EnumValue, ForeignLambda, UnitValue},
     },
     syntax::{
         pe::{PEContext, PartialEval},
@@ -87,11 +89,7 @@ impl Eval for Decl {
                         )?,
                         _ => ctx.put_var(
                             variant.name.clone(),
-                            EnumCtor(
-                                variant.clone(),
-                                0,
-                                Vec::with_capacity(variant.fields as usize),
-                            ),
+                            EnumCtor(variant.clone(), Vec::with_capacity(variant.fields as usize)),
                         )?,
                     };
                 }
@@ -290,6 +288,10 @@ impl Context {
         Context { stack }
     }
 
+    pub fn load_builtins(&mut self) {
+        Builtins::init(self)
+    }
+
     pub fn source(&mut self, input: Program) -> Result<Value, RuntimeError> {
         input.eval_into(self)
     }
@@ -320,6 +322,22 @@ impl Context {
             .enums
             .insert(name, variants);
         Ok(())
+    }
+
+    pub fn ffi(
+        &mut self,
+        name: String,
+        argc: usize,
+        closure: FFIFn,
+    ) -> Result<Option<Value>, RuntimeError> {
+        self.put_var(
+            name,
+            Value::ForeignLambda(
+                argc,
+                Vec::with_capacity(argc),
+                FFIClosure::boxed(argc, closure),
+            ),
+        )
     }
 
     fn new_scope(&mut self) {
@@ -380,13 +398,23 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
 
         // We only handle enum constructors that has fields,
         // constructors with no fields are handled in Decl::eval_into()
-        EnumCtor(variant, dbi, mut fields) => {
-            debug_assert_ne!(variant.fields, dbi);
+        EnumCtor(variant, mut fields) => {
+            debug_assert_ne!(variant.fields, fields.len());
             fields.push(arg.eval_into(ctx)?);
-            if dbi + 1 == variant.fields {
+            if fields.len() == variant.fields {
                 Ok(EnumValue(variant, fields))
             } else {
-                Ok(EnumCtor(variant, dbi + 1, fields))
+                Ok(EnumCtor(variant, fields))
+            }
+        }
+
+        ForeignLambda(argc, mut argv, ffi) => {
+            debug_assert_ne!(argc as usize, argv.len());
+            argv.push(arg.eval_into(ctx)?);
+            if argv.len() == argc as usize {
+                ((*ffi).closure)(argv).map_err(|e| e.into())
+            } else {
+                Ok(ForeignLambda(argc, argv, ffi))
             }
         }
 

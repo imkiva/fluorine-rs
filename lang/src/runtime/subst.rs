@@ -8,13 +8,13 @@ use crate::syntax::tree::{
 pub trait Subst {
     type Output;
 
-    fn subst(self: Self, dbi: i32, replacement: &Expr) -> Self::Output;
+    fn subst(self: Self, dbi: usize, replacement: &Expr) -> Self::Output;
 }
 
 impl<T: Subst<Output = T>> Subst for Box<T> {
     type Output = Box<T>;
 
-    fn subst(self: Self, dbi: i32, replacement: &Expr) -> Self::Output {
+    fn subst(self: Self, dbi: usize, replacement: &Expr) -> Self::Output {
         let t = *self;
         Box::new(t.subst(dbi, replacement))
     }
@@ -23,7 +23,7 @@ impl<T: Subst<Output = T>> Subst for Box<T> {
 impl<T: Subst<Output = T>> Subst for Vec<T> {
     type Output = Vec<T>;
 
-    fn subst(self: Self, dbi: i32, replacement: &Expr) -> Self::Output {
+    fn subst(self: Self, dbi: usize, replacement: &Expr) -> Self::Output {
         self.into_iter()
             .map(|expr| expr.subst(dbi, replacement))
             .collect()
@@ -33,7 +33,7 @@ impl<T: Subst<Output = T>> Subst for Vec<T> {
 impl Subst for MatchCase {
     type Output = MatchCase;
 
-    fn subst(self: Self, dbi: i32, replacement: &Expr) -> Self::Output {
+    fn subst(self: Self, dbi: usize, replacement: &Expr) -> Self::Output {
         MatchCase(self.0, self.1.subst(dbi, replacement))
     }
 }
@@ -41,7 +41,7 @@ impl Subst for MatchCase {
 impl Subst for Expr {
     type Output = Expr;
 
-    fn subst(self: Self, dbi: i32, replacement: &Expr) -> Self::Output {
+    fn subst(self: Self, dbi: usize, replacement: &Expr) -> Self::Output {
         match self {
             DBI(i) if dbi == i => replacement.clone(),
             DBI(_) => self,

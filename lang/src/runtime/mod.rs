@@ -1,7 +1,9 @@
 use crate::{
     codegen::{fs::FsCodeGenerator, PartialCodeGenerator},
+    ffi::{FFIClosure, FFIError},
     runtime::Value::{
-        BoolValue, EnumCtor, EnumValue, LambdaValue, NumberValue, StringValue, UnitValue,
+        BoolValue, EnumCtor, EnumValue, ForeignLambda, LambdaValue, NumberValue, StringValue,
+        UnitValue,
     },
     syntax::tree::{
         ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Name,
@@ -13,6 +15,7 @@ use std::{
     fmt::Formatter,
 };
 
+mod builtins;
 pub mod eval;
 pub mod pattern;
 pub mod subst;
@@ -24,6 +27,7 @@ pub enum RuntimeError {
     NotApplicable,
     NonExhaustive,
     TypeMismatch,
+    FFIError(FFIError),
 }
 
 impl std::fmt::Display for RuntimeError {
@@ -38,6 +42,7 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::TypeMismatch => {
                 write!(f, "TypeError: operators can only apply to same types")
             }
+            RuntimeError::FFIError(err) => write!(f, "FFIError: {}", err),
         }
     }
 }
@@ -60,8 +65,20 @@ pub enum Value {
     BoolValue(bool),
     StringValue(String),
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
-    EnumCtor(EnumVariant, ApplyStartDBI, Vec<Value>),
+    EnumCtor(EnumVariant, Vec<Value>),
     EnumValue(EnumVariant, Vec<Value>),
+    ForeignLambda(Argc, Vec<Value>, Box<FFIClosure>),
+}
+
+pub trait IntoValue {
+    fn into_value(self) -> Value;
+}
+
+pub trait FromValue
+where
+    Self: Sized,
+{
+    fn from_value(value: Value) -> Option<Self>;
 }
 
 impl std::fmt::Display for Value {
@@ -77,7 +94,7 @@ impl std::fmt::Display for Value {
                     gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
                 write!(f, "{}", code)
             }
-            EnumCtor(variant, _, fields) | EnumValue(variant, fields) => {
+            EnumCtor(variant, fields) | EnumValue(variant, fields) => {
                 write!(f, "{}(", variant.name.as_str())?;
                 let mut item = Vec::with_capacity(variant.fields as usize);
                 for field in fields {
@@ -88,6 +105,7 @@ impl std::fmt::Display for Value {
                 }
                 write!(f, "{})", item.join(","))
             }
+            ForeignLambda(_, _, _) => write!(f, "<foreign-lambda>"),
         }
     }
 }
@@ -112,3 +130,111 @@ impl std::cmp::PartialEq for Value {
         }
     }
 }
+
+impl IntoValue for Value {
+    fn into_value(self) -> Value {
+        self
+    }
+}
+
+impl FromValue for Value {
+    fn from_value(value: Value) -> Option<Self> {
+        Some(value)
+    }
+}
+
+impl IntoValue for String {
+    fn into_value(self) -> Value {
+        StringValue(self)
+    }
+}
+
+impl IntoValue for &str {
+    fn into_value(self) -> Value {
+        StringValue(self.to_owned())
+    }
+}
+
+impl FromValue for String {
+    fn from_value(value: Value) -> Option<Self> {
+        match value {
+            StringValue(str) => Some(str),
+            _ => None,
+        }
+    }
+}
+
+impl FromValue for () {
+    fn from_value(value: Value) -> Option<Self> {
+        match value {
+            UnitValue => Some(()),
+            _ => None,
+        }
+    }
+}
+
+impl IntoValue for () {
+    fn into_value(self) -> Value {
+        UnitValue
+    }
+}
+
+impl FromValue for bool {
+    fn from_value(value: Value) -> Option<Self> {
+        match value {
+            BoolValue(b) => Some(b),
+            _ => None,
+        }
+    }
+}
+
+impl IntoValue for bool {
+    fn into_value(self) -> Value {
+        BoolValue(self)
+    }
+}
+
+macro_rules! to_value {
+    ($t:ty) => {
+        impl IntoValue for $t {
+            fn into_value(self) -> Value {
+                NumberValue(self as f64)
+            }
+        }
+    };
+}
+
+macro_rules! from_value {
+    ($t:ty) => {
+        impl FromValue for $t {
+            fn from_value(value: Value) -> Option<Self> {
+                match value {
+                    NumberValue(n) => Some(n as $t),
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+
+to_value!(i8);
+to_value!(i16);
+to_value!(i32);
+to_value!(i64);
+to_value!(u8);
+to_value!(u16);
+to_value!(u32);
+to_value!(u64);
+to_value!(f32);
+to_value!(f64);
+
+from_value!(i8);
+from_value!(i16);
+from_value!(i32);
+from_value!(i64);
+from_value!(u8);
+from_value!(u16);
+from_value!(u32);
+from_value!(u64);
+from_value!(f32);
+from_value!(f64);

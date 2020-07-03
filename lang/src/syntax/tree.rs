@@ -1,6 +1,6 @@
 pub type Name = String;
 
-pub type DBI = i32;
+pub type DBI = usize;
 pub type Argc = DBI;
 pub type ApplyStartDBI = DBI;
 
@@ -23,7 +23,7 @@ pub enum Atom {
 pub enum Expr {
     Unit,
     AtomExpr(Atom),
-    DBI(i32),
+    DBI(usize),
     UnaryExpr(String, Box<Expr>),
     BinaryExpr(String, Box<Expr>, Box<Expr>),
     ApplyExpr(Box<Expr>, Box<Expr>),
@@ -49,7 +49,7 @@ pub enum Decl {
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct EnumVariant {
     pub name: String,
-    pub fields: i32,
+    pub fields: usize,
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
