@@ -25,4 +25,9 @@ mod builtin_ffi {
     fn id(v: Value) -> Value {
         v
     }
+
+    #[fluorine]
+    fn println(v: Value) {
+        println!("{}", v);
+    }
 }

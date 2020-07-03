@@ -1,4 +1,4 @@
 let fact = { n -> match n { 1 => 1, _ => n * fact(n - 1) } }
 
-fact(100)
+println(fact(10000))
 
