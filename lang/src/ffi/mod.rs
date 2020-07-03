@@ -15,6 +15,7 @@ pub enum FFIError {
     // arg-index, expected, got
     ArgTypeMismatch(usize, String, String),
     CustomError(String),
+    Panic(String),
 }
 
 pub trait FFIIntoValue {
@@ -72,7 +73,14 @@ impl std::fmt::Display for FFIError {
                 i, expected, got
             ),
             FFIError::CustomError(reason) => write!(f, "RuntimeError: {}", reason),
+            FFIError::Panic(reason) => write!(f, "panic: {}", reason),
         }
+    }
+}
+
+impl FFIIntoValue for FFIError {
+    fn ffi_into_value(self) -> FFIResult {
+        Err(self)
     }
 }
 

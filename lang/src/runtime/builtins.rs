@@ -17,7 +17,7 @@ mod builtin_ffi {
     use crate::ffi::*;
 
     #[fluorine]
-    fn hello(_: ()) -> String {
-        String::from("hello world")
+    fn panic(reason: String) -> FFIError {
+        FFIError::Panic(reason)
     }
 }
