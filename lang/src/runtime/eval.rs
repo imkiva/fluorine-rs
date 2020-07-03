@@ -23,7 +23,7 @@ use crate::{
     runtime::{
         builtins::Builtins,
         pattern::Matcher,
-        Context, RuntimeError,
+        Context, EnumType, RuntimeError,
         RuntimeError::TypeMismatch,
         Scope, Value,
         Value::{EnumCtor, EnumValue, ForeignLambda, UnitValue},
@@ -81,15 +81,23 @@ impl Eval for Decl {
                 Ok(UnitValue)
             }
             EnumDecl(name, variants) => {
+                let ty = EnumType {
+                    name: name.clone(),
+                    variants: variants.clone(),
+                };
                 for variant in &variants {
                     match variant.fields {
                         0 => ctx.put_var(
                             variant.name.clone(),
-                            EnumValue(variant.clone(), Vec::new()),
+                            EnumValue(ty.clone(), variant.clone(), Vec::new()),
                         )?,
                         _ => ctx.put_var(
                             variant.name.clone(),
-                            EnumCtor(variant.clone(), Vec::with_capacity(variant.fields as usize)),
+                            EnumCtor(
+                                ty.clone(),
+                                variant.clone(),
+                                Vec::with_capacity(variant.fields as usize),
+                            ),
                         )?,
                     };
                 }
@@ -398,13 +406,13 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
 
         // We only handle enum constructors that has fields,
         // constructors with no fields are handled in Decl::eval_into()
-        EnumCtor(variant, mut fields) => {
+        EnumCtor(ty, variant, mut fields) => {
             debug_assert_ne!(variant.fields, fields.len());
             fields.push(arg.eval_into(ctx)?);
             if fields.len() == variant.fields {
-                Ok(EnumValue(variant, fields))
+                Ok(EnumValue(ty, variant, fields))
             } else {
-                Ok(EnumCtor(variant, fields))
+                Ok(EnumCtor(ty, variant, fields))
             }
         }
 

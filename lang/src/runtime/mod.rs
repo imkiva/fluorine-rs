@@ -7,6 +7,7 @@ use crate::{
     },
     syntax::tree::{
         ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Name,
+        PatEnumVariant,
     },
 };
 use std::{
@@ -65,9 +66,25 @@ pub enum Value {
     BoolValue(bool),
     StringValue(String),
     LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
-    EnumCtor(EnumVariant, Vec<Value>),
-    EnumValue(EnumVariant, Vec<Value>),
+    EnumCtor(EnumType, EnumVariant, Vec<Value>),
+    EnumValue(EnumType, EnumVariant, Vec<Value>),
     ForeignLambda(Argc, Vec<Value>, Box<FFIClosure>),
+}
+
+#[derive(Clone, Debug)]
+pub enum Type {
+    UnitType,
+    NumberType,
+    BoolType,
+    StringType,
+    LambdaType(Argc),
+    EnumType(EnumType),
+}
+
+#[derive(Clone, Debug)]
+pub struct EnumType {
+    pub name: String,
+    pub variants: Vec<EnumVariant>,
 }
 
 pub trait IntoValue {
@@ -94,7 +111,7 @@ impl std::fmt::Display for Value {
                     gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
                 write!(f, "{}", code)
             }
-            EnumCtor(variant, fields) | EnumValue(variant, fields) => {
+            EnumCtor(ty, variant, fields) | EnumValue(ty, variant, fields) => {
                 write!(f, "{}(", variant.name.as_str())?;
                 let mut item = Vec::with_capacity(variant.fields as usize);
                 for field in fields {
@@ -103,7 +120,7 @@ impl std::fmt::Display for Value {
                 for _ in item.len()..variant.fields as usize {
                     item.push("_".to_owned());
                 }
-                write!(f, "{})", item.join(","))
+                write!(f, "{}) :: {}", item.join(","), ty.name)
             }
             ForeignLambda(_, _, _) => write!(f, "<foreign-lambda>"),
         }
@@ -128,6 +145,19 @@ impl std::cmp::PartialEq for Value {
             (StringValue(lhs), StringValue(rhs)) => lhs == rhs,
             _ => false,
         }
+    }
+}
+
+impl EnumType {
+    pub fn has_variant(&self, variant: &EnumVariant) -> bool {
+        self.variants.iter().position(|v| v == variant).is_some()
+    }
+
+    pub fn has_pat_variant(&self, variant: &PatEnumVariant) -> bool {
+        self.variants
+            .iter()
+            .position(|v| v.name == variant.name && v.fields == variant.fields.len())
+            .is_some()
     }
 }
 

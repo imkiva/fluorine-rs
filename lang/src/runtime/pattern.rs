@@ -37,8 +37,10 @@ impl Matcher for MatchCase {
             (PatLit(LitString(lhs)), StringValue(rhs)) if lhs == *rhs => {
                 Some((Default::default(), self.1))
             }
-            (PatVariant(lhs), EnumValue(rhs, fields))
-                if lhs.name == rhs.name && lhs.fields.len() == fields.len() =>
+            (PatVariant(lhs), EnumValue(ty, rhs, fields))
+                if ty.has_pat_variant(&lhs)
+                    && lhs.name == rhs.name
+                    && lhs.fields.len() == fields.len() =>
             {
                 let records = lhs.fields.into_iter().zip(fields.clone()).collect();
                 Some((records, self.1))
