@@ -14,10 +14,15 @@ impl Builtins {
 
 #[fluorine(Builtin)]
 mod builtin_ffi {
-    use crate::ffi::*;
+    use crate::{ffi::*, runtime::Value};
 
     #[fluorine]
     fn panic(reason: String) -> FFIError {
         FFIError::Panic(reason)
+    }
+
+    #[fluorine]
+    fn id(v: Value) -> Value {
+        v
     }
 }

@@ -84,6 +84,12 @@ impl FFIIntoValue for FFIError {
     }
 }
 
+impl FFIIntoValue for FFIResult {
+    fn ffi_into_value(self) -> FFIResult {
+        self
+    }
+}
+
 impl<T> FFIIntoValue for T
 where
     T: IntoValue,
