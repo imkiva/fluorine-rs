@@ -43,9 +43,8 @@ mod math_ffi {
     use crate::{
         ffi::*,
         runtime::{builtins::math_ffi::derive_impl::Derive1, FromValue, IntoValue, Value},
-        syntax::tree::Expr,
+        syntax::{pe::PartialEval, tree::Expr},
     };
-    use crate::syntax::pe::PartialEval;
 
     struct LambdaValue {
         argc: usize,
