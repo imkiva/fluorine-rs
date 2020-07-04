@@ -38,5 +38,5 @@ where
     }
 }
 
-pub mod fs;
 pub mod c;
+pub mod fs;
