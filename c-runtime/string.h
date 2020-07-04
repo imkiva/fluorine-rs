@@ -6,12 +6,11 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#include "move.h"
+#include "men.h"
 
 typedef struct {
     size_t len;
-    size_t capacity;
-    char *data;
+    char data[0];
 } String;
 
 extern String *String_new();
@@ -23,8 +22,6 @@ extern const char *String_as_str(String *this);
 extern String *String_concat(String *MOVE(lhs), String *MOVE(rhs));
 extern bool String_starts_with(String *this, String *rhs);
 extern bool String_starts_with2(String *this, const char *rhs);
-extern bool String_ends_with(String *this, String *rhs);
-extern bool String_ends_with2(String *this, const char *rhs);
 
 extern ssize_t String_index_of(String *this, String *rhs);
 extern ssize_t String_index_of2(String *this, const char *rhs);
