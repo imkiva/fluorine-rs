@@ -7,6 +7,8 @@
 
 #include "mem.h"
 
+#define Vec(type) Vec
+
 typedef struct {
     size_t cap;
     size_t len;
