@@ -37,6 +37,8 @@ String *String_concat(String *MOVE(lhs), String *MOVE(rhs)) {
     String *s = String_with_capacity(lhs->len + rhs->len);
     strcat(s->data, lhs->data);
     strcat(s->data, rhs->data);
+    String_delete(lhs);
+    String_delete(rhs);
     return s;
 }
 
