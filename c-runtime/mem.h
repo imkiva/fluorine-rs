@@ -4,11 +4,12 @@
 #pragma once
 
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 
 #define MOVE(v) v
 
-#define NEW(type) ((String *) __mem_alloc(sizeof(type)))
+#define NEW(type) ((type *) __mem_alloc(sizeof(type)))
 #define NEW_SIZED(size) (__mem_alloc(size))
 
 #define DELETE(ptr) __mem_dealloc(ptr)
@@ -22,5 +23,7 @@ static inline void *__mem_alloc(size_t size) {
 }
 
 static inline void __mem_dealloc(void *ptr) {
-    free(ptr);
+    if (ptr) {
+        free(ptr);
+    }
 }
