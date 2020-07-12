@@ -11,9 +11,9 @@ use crate::{
         Decl::LetDecl,
         Expr,
         Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
-        Lit,
+        Ident, Lit,
         Lit::{LitBool, LitNumber, LitString},
-        MatchCase, Name, Program, ProgramItem,
+        MatchCase, Program, ProgramItem,
         ProgramItem::{DeclItem, ExprItem},
     },
 };
@@ -30,7 +30,7 @@ use crate::{
     },
     syntax::{
         pe::{PEContext, PartialEval},
-        tree::{Decl::EnumDecl, EnumVariant},
+        tree::{Decl::EnumDecl, EnumVariant, Expr::MemberExpr},
     },
 };
 use std::{
@@ -147,6 +147,8 @@ impl Eval for Expr {
             ApplyExpr(f, a) => eval_apply(ctx, *f, *a),
 
             MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
+
+            MemberExpr(lhs, id) => unimplemented!("// TODO"),
 
             DBI(_) => unreachable!("dangling dbi"),
         }
@@ -304,7 +306,7 @@ impl Context {
         input.eval_into(self)
     }
 
-    fn put_var(&mut self, name: Name, value: Value) -> Result<Option<Value>, RuntimeError> {
+    fn put_var(&mut self, name: Ident, value: Value) -> Result<Option<Value>, RuntimeError> {
         Ok(self
             .stack
             .front_mut()

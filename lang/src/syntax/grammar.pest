@@ -31,7 +31,7 @@ expr_binary_level2 = { expr_binary_level3 ~ (level2_op ~ expr_binary_level3)* }
 expr_binary_level3 = { expr_unary ~ (level3_op ~ expr_unary)? }
 
 expr_unary = { unary_op ~ expr_unary
-             | expr_atom ~ expr_apply*
+             | expr_atom ~ atom_postfix*
              }
 
 expr_atom = { "(" ~ expr? ~ ")"
@@ -49,7 +49,13 @@ quick_lambda = { UNDERLINE ~ quick_lambda_ops ~ UNDERLINE }
 
 quick_lambda_ops = _ { logical_op | relational_op | level1_op | level2_op | level3_op }
 
-expr_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
+atom_postfix = { postfix_apply
+               | postfix_member
+               }
+
+postfix_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ","? ~ ")" }
+
+postfix_member = { "." ~ id }
 
 param = { id ~ ("," ~ id)* }
 

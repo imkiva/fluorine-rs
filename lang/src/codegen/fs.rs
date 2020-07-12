@@ -7,7 +7,7 @@ use crate::{
         Decl,
         Decl::{EnumDecl, LetDecl},
         EnumVariant, Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
+        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
         Lit,
         Lit::{LitBool, LitNumber, LitString},
         MatchCase, Pattern,
@@ -117,6 +117,7 @@ impl TargetFs for Expr {
                 matchee.codegen_to_fs(),
                 cases.codegen_to_fs()
             ),
+            MemberExpr(lhs, id) => format!("{}.{}", lhs.codegen_to_fs(), id.as_str(),),
             DBI(_) => unreachable!("dangling DBI outside lambda"),
         }
     }

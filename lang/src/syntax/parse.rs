@@ -118,12 +118,27 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
             let primary = parse_expr_atom(first);
             nodes
                 .into_iter()
-                .flat_map(|apply| apply.into_inner())
-                .fold(primary, |lhs, arg| {
-                    ApplyExpr(Box::new(lhs), Box::new(parse_expr(arg)))
-                })
+                .flat_map(|postfix| postfix.into_inner())
+                .fold(primary, build_apply_or_member)
         }
         _ => unreachable!("expr unary inner should be expr_primary or unary_op"),
+    }
+}
+
+fn build_apply_or_member(lhs: Expr, postfix: Pair<Rule>) -> Expr {
+    match postfix.as_rule() {
+        Rule::postfix_apply => postfix
+            .into_inner()
+            .into_iter()
+            .map(|expr| parse_expr(expr))
+            .fold(lhs, |lhs, arg| ApplyExpr(Box::new(lhs), Box::new(arg))),
+
+        Rule::postfix_member => {
+            let id = postfix.into_inner().next().unwrap().as_str().to_owned();
+            MemberExpr(Box::new(lhs), id)
+        }
+
+        _ => unreachable!("not a postfix"),
     }
 }
 
@@ -155,7 +170,7 @@ fn parse_lambda(node: Pair<Rule>) -> Expr {
 
 fn parse_normal_lambda(node: Pair<Rule>) -> Expr {
     let mut nodes: VecDeque<Pair<Rule>> = node.into_inner().into_iter().collect();
-    let params: Vec<Name> = nodes
+    let params: Vec<Ident> = nodes
         .pop_front()
         .unwrap()
         .into_inner()
@@ -275,7 +290,7 @@ fn parse_pat_enum_variant(node: Pair<Rule>) -> PatEnumVariant {
     }
 }
 
-fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
+fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Ident>>, expr: Expr) -> Expr {
     match expr {
         // if this is a unsolved lambda
         AtomExpr(AtomRawLambda(names, body)) => dbi_lambda_body(param_stack, names, body),
@@ -291,14 +306,14 @@ fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
 }
 
 fn dbi_lambda_body(
-    param_stack: &mut VecDeque<&Vec<Name>>,
-    names: Vec<Name>,
+    param_stack: &mut VecDeque<&Vec<Ident>>,
+    names: Vec<Ident>,
     body: Vec<Expr>,
 ) -> Expr {
     // I know what I am doing!
     unsafe {
         // This is totally SAFE!!!!
-        let ptr: *const Vec<Name> = &names;
+        let ptr: *const Vec<Ident> = &names;
         param_stack.push_front(&*ptr);
     }
 
@@ -315,7 +330,7 @@ fn dbi_lambda_body(
     r
 }
 
-fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
+fn dbi_expr(param_stack: &mut VecDeque<&Vec<Ident>>, expr: Expr) -> Expr {
     match &expr {
         // resolve variable name to dbi
         AtomExpr(AtomId(id)) => {
@@ -356,7 +371,7 @@ fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
     }
 }
 
-fn resolve_param(param_stack: &VecDeque<&Vec<Name>>, name: &str) -> Option<usize> {
+fn resolve_param(param_stack: &VecDeque<&Vec<Ident>>, name: &str) -> Option<usize> {
     let mut base_dbi = 0;
 
     for &scope in param_stack {

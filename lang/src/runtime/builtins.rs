@@ -103,6 +103,7 @@ mod math_ffi {
                     Expr::MatchExpr(matchee, cases) => {
                         Expr::MatchExpr(matchee.derive1(), cases.derive1())
                     }
+                    Expr::MemberExpr(lhs, id) => Expr::MemberExpr(lhs.derive1(), id),
 
                     Expr::BinaryExpr(op, lhs, rhs) => match (op.as_str(), *lhs, *rhs) {
                         ("*", lhs, rhs) => Expr::BinaryExpr(

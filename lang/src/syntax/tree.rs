@@ -1,4 +1,4 @@
-pub type Name = String;
+pub type Ident = String;
 
 pub type DBI = usize;
 pub type Argc = DBI;
@@ -14,9 +14,9 @@ pub enum Lit {
 #[derive(Debug, Clone)]
 pub enum Atom {
     AtomLit(Lit),
-    AtomId(Name),
+    AtomId(Ident),
     AtomLambda(Argc, ApplyStartDBI, Vec<Expr>),
-    AtomRawLambda(Vec<Name>, Vec<Expr>),
+    AtomRawLambda(Vec<Ident>, Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]
@@ -27,6 +27,7 @@ pub enum Expr {
     UnaryExpr(String, Box<Expr>),
     BinaryExpr(String, Box<Expr>, Box<Expr>),
     ApplyExpr(Box<Expr>, Box<Expr>),
+    MemberExpr(Box<Expr>, Ident),
     MatchExpr(Box<Expr>, Vec<MatchCase>),
 }
 
@@ -42,8 +43,8 @@ pub enum Pattern {
 
 #[derive(Debug)]
 pub enum Decl {
-    LetDecl(Name, Expr),
-    EnumDecl(Name, Vec<EnumVariant>),
+    LetDecl(Ident, Expr),
+    EnumDecl(Ident, Vec<EnumVariant>),
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
