@@ -31,7 +31,7 @@ use crate::{
     syntax::{
         pe::{PEContext, PartialEval},
         tree::{
-            Decl::{EnumDecl, TraitDecl},
+            Decl::{EnumDecl, ImplDecl, TraitDecl},
             EnumVariant,
             Expr::MemberExpr,
             TraitFn,
@@ -113,6 +113,7 @@ impl Eval for Decl {
                 ctx.put_trait(name, fns)?;
                 Ok(UnitValue)
             }
+            ImplDecl(tr, ty, fns) => unimplemented!("// TODO"),
         }
     }
 }

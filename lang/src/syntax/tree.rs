@@ -66,6 +66,7 @@ pub enum Decl {
     LetDecl(Ident, Expr),
     EnumDecl(Ident, Vec<EnumVariant>),
     TraitDecl(Ident, Vec<TraitFn>),
+    ImplDecl(Ident, Ident, Vec<Decl>),
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]

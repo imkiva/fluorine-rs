@@ -6,7 +6,7 @@
 
 unit = { (WHITESPACE | COMMENT | decl | expr)* ~ EOI }
 
-expr = { expr_relational ~ (logical_op ~ expr_relational)* ~ SEMI? }
+expr = { expr_relational ~ (logical_op ~ expr_relational)* ~ ";"? }
 
 expr_list = { expr+ }
 
@@ -100,9 +100,10 @@ escape = _{ "\\\\"
 decl = { let_decl
        | enum_decl
        | trait_decl
+       | impl_decl
        }
 
-let_decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
+let_decl = { "let" ~ id ~ "=" ~ expr ~ ";"? }
 
 enum_decl = { "enum" ~ type_ ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
 
@@ -110,7 +111,11 @@ enum_variant = { enum_ctor ~ ("(" ~ (type_ ~ ","?)* ~ ")")? }
 
 trait_decl = { "trait" ~ type_ ~ "{" ~ trait_fn* ~ "}" }
 
-trait_fn = { "fn" ~ id ~ "(" ~ param ~ ")" ~ "->" ~ type_ ~ ";"? }
+trait_fn = { "let" ~ id ~ ":" ~ "(" ~ param ~ ")" ~ "->" ~ type_ ~ ";"? }
+
+impl_decl = { "impl" ~ type_ ~ "for" ~ type_ ~ "{" ~ impl_fn* ~ "}" }
+
+impl_fn = { "let" ~ id ~ "=" ~ normal_lambda ~ ";"? }
 
 type_ = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 
@@ -121,8 +126,6 @@ enum_ctor = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$
 id_typed = { id ~ (":" ~ type_)? }
 
 UNDERLINE = _ { "_" }
-
-SEMI = _ { ";" }
 
 WHITESPACE = _ { " "
                | "\t"

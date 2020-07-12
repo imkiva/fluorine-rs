@@ -5,7 +5,7 @@ use crate::{
         Atom,
         Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
         Decl,
-        Decl::{EnumDecl, LetDecl, TraitDecl},
+        Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
         EnumVariant, Expr,
         Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
         Lit,
@@ -132,6 +132,9 @@ impl TargetFs for Decl {
                 format!("enum {} {{\n{}\n}}", name, variants.codegen_to_fs())
             }
             TraitDecl(name, fns) => format!("trait {} {{\n{}\n}}", name, fns.codegen_to_fs()),
+            ImplDecl(tr, ty, fns) => {
+                format!("impl {} for {} {{\n{}\n}}", tr, ty, fns.codegen_to_fs())
+            }
         }
     }
 }

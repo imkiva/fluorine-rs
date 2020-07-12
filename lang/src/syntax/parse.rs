@@ -45,6 +45,8 @@ fn convert_dbi(input: Program) -> Program {
             DeclItem(EnumDecl(name, variants)) => DeclItem(EnumDecl(name, variants)),
 
             DeclItem(TraitDecl(name, fns)) => DeclItem(TraitDecl(name, fns)),
+
+            DeclItem(ImplDecl(tr, ty, fns)) => DeclItem(ImplDecl(tr, ty, fns)),
         })
         .collect()
 }
@@ -297,6 +299,7 @@ fn parse_decl(node: Pair<Rule>) -> Decl {
         Rule::let_decl => parse_let_decl(child),
         Rule::enum_decl => parse_enum_decl(child),
         Rule::trait_decl => parse_trait_decl(child),
+        Rule::impl_decl => parse_impl_decl(child),
         _ => unreachable!("unsupported decl type: {:?}", child.as_rule()),
     }
 }
@@ -341,6 +344,21 @@ fn parse_trait_fn(node: Pair<Rule>) -> TraitFn {
         param,
         ret,
     }
+}
+
+fn parse_impl_decl(node: Pair<Rule>) -> Decl {
+    let mut iter = node.into_inner().into_iter();
+    let tr = iter.next().unwrap().as_str();
+    let ty = iter.next().unwrap().as_str();
+    let fns = iter.map(parse_impl_fn).collect();
+    ImplDecl(tr.to_owned(), ty.to_owned(), fns)
+}
+
+fn parse_impl_fn(node: Pair<Rule>) -> Decl {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    let lambda = parse_normal_lambda(iter.next().unwrap());
+    LetDecl(id.to_owned(), lambda)
 }
 
 fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
