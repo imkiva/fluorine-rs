@@ -118,7 +118,7 @@ impl TargetFs for Expr {
                 matchee.codegen_to_fs(),
                 cases.codegen_to_fs()
             ),
-            MemberExpr(lhs, id) => format!("{}.{}", lhs.codegen_to_fs(), id.as_str(),),
+            MemberExpr(lhs, id) => format!("{}.{}", lhs.codegen_to_fs(), id.as_str()),
             DBI(_) => unreachable!("dangling DBI outside lambda"),
         }
     }
