@@ -184,6 +184,9 @@ impl REPL {
                 println!("Enums: ");
                 scope.enums.iter().for_each(|(k, _)| println!("- {}", k));
                 println!();
+                println!("Traits: ");
+                scope.traits.iter().for_each(|(k, _)| println!("- {}", k));
+                println!();
                 println!("Vars:");
                 scope.vars.iter().for_each(|(k, _)| println!("- {}", k));
                 println!();

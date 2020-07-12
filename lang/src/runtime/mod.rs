@@ -7,7 +7,7 @@ use crate::{
     },
     syntax::tree::{
         ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Ident, Param,
-        PatEnumVariant,
+        PatEnumVariant, TraitFn,
     },
 };
 use std::{
@@ -57,6 +57,7 @@ pub struct Context {
 pub struct Scope {
     pub vars: HashMap<Ident, Value>,
     pub enums: HashMap<Ident, Vec<EnumVariant>>,
+    pub traits: HashMap<Ident, Vec<TraitFn>>,
 }
 
 #[derive(Clone, Debug)]

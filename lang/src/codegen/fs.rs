@@ -5,12 +5,12 @@ use crate::{
         Atom,
         Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
         Decl,
-        Decl::{EnumDecl, LetDecl},
+        Decl::{EnumDecl, LetDecl, TraitDecl},
         EnumVariant, Expr,
         Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
         Lit,
         Lit::{LitBool, LitNumber, LitString},
-        MatchCase, Param, Pattern,
+        MatchCase, Param, ParseType, Pattern, TraitFn,
     },
 };
 use std::collections::VecDeque;
@@ -131,6 +131,7 @@ impl TargetFs for Decl {
             EnumDecl(name, variants) => {
                 format!("enum {} {{\n{}\n}}", name, variants.codegen_to_fs())
             }
+            TraitDecl(name, fns) => format!("trait {} {{\n{}\n}}", name, fns.codegen_to_fs()),
         }
     }
 }
@@ -138,6 +139,39 @@ impl TargetFs for Decl {
 impl TargetFs for EnumVariant {
     fn codegen_to_fs(self: Self) -> String {
         format!("{}({})", self.name, self.field_types.join(", "))
+    }
+}
+
+impl TargetFs for TraitFn {
+    fn codegen_to_fs(self: Self) -> String {
+        format!(
+            "fn {}({}) -> {};",
+            self.name,
+            self.param.codegen_to_fs(),
+            self.ret.codegen_to_fs()
+        )
+    }
+}
+
+impl TargetFs for Param {
+    fn codegen_to_fs(self: Self) -> String {
+        format!(
+            "{}{}",
+            self.id,
+            match self.ty {
+                Some(ty) => format!(": {}", ty),
+                _ => "".to_string(),
+            }
+        )
+    }
+}
+
+impl TargetFs for ParseType {
+    fn codegen_to_fs(self: Self) -> String {
+        match self {
+            ParseType::SelfType => "Self".to_string(),
+            ParseType::OtherType(ty) => ty,
+        }
     }
 }
 

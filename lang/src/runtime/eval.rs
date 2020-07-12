@@ -30,7 +30,12 @@ use crate::{
     },
     syntax::{
         pe::{PEContext, PartialEval},
-        tree::{Decl::EnumDecl, EnumVariant, Expr::MemberExpr},
+        tree::{
+            Decl::{EnumDecl, TraitDecl},
+            EnumVariant,
+            Expr::MemberExpr,
+            TraitFn,
+        },
     },
 };
 use std::{
@@ -102,6 +107,10 @@ impl Eval for Decl {
                     };
                 }
                 ctx.put_enum(name, variants)?;
+                Ok(UnitValue)
+            }
+            TraitDecl(name, fns) => {
+                ctx.put_trait(name, fns)?;
                 Ok(UnitValue)
             }
         }
@@ -334,6 +343,15 @@ impl Context {
         Ok(())
     }
 
+    fn put_trait(&mut self, name: String, fns: Vec<TraitFn>) -> Result<(), RuntimeError> {
+        self.stack
+            .front_mut()
+            .ok_or(StackUnderflow)?
+            .traits
+            .insert(name, fns);
+        Ok(())
+    }
+
     pub fn ffi(
         &mut self,
         name: String,
@@ -373,6 +391,7 @@ impl Scope {
         Scope {
             vars: Default::default(),
             enums: Default::default(),
+            traits: Default::default(),
         }
     }
 }

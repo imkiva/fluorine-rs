@@ -43,6 +43,8 @@ fn convert_dbi(input: Program) -> Program {
             }
 
             DeclItem(EnumDecl(name, variants)) => DeclItem(EnumDecl(name, variants)),
+
+            DeclItem(TraitDecl(name, fns)) => DeclItem(TraitDecl(name, fns)),
         })
         .collect()
 }
@@ -186,13 +188,17 @@ fn parse_id_typed(id_typed: Pair<Rule>) -> Param {
 
     let ty = match id.as_str() {
         "self" => Some(ParseType::SelfType),
-        _ => nodes.next().map(|ty| match ty.as_str() {
-            "Self" => ParseType::SelfType,
-            ty => ParseType::OtherType(ty.to_string()),
-        }),
+        _ => nodes.next().map(parse_type),
     };
 
     Param { id, ty }
+}
+
+fn parse_type(node: Pair<Rule>) -> ParseType {
+    match node.as_str() {
+        "Self" => ParseType::SelfType,
+        ty => ParseType::OtherType(ty.to_string()),
+    }
 }
 
 fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
@@ -259,6 +265,15 @@ fn parse_pattern(pat: Pair<Rule>) -> Pattern {
     }
 }
 
+fn parse_pat_enum_variant(node: Pair<Rule>) -> PatEnumVariant {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    PatEnumVariant {
+        name: id.to_owned(),
+        fields: iter.map(|field| field.as_str().to_owned()).collect(),
+    }
+}
+
 fn parse_expr_list(node: Pair<Rule>) -> Vec<Expr> {
     node.into_inner()
         .into_iter()
@@ -281,6 +296,7 @@ fn parse_decl(node: Pair<Rule>) -> Decl {
     match child.as_rule() {
         Rule::let_decl => parse_let_decl(child),
         Rule::enum_decl => parse_enum_decl(child),
+        Rule::trait_decl => parse_trait_decl(child),
         _ => unreachable!("unsupported decl type: {:?}", child.as_rule()),
     }
 }
@@ -308,12 +324,22 @@ fn parse_enum_variant(node: Pair<Rule>) -> EnumVariant {
     }
 }
 
-fn parse_pat_enum_variant(node: Pair<Rule>) -> PatEnumVariant {
+fn parse_trait_decl(node: Pair<Rule>) -> Decl {
     let mut iter = node.into_inner().into_iter();
     let id = iter.next().unwrap().as_str();
-    PatEnumVariant {
+    let fns = iter.map(parse_trait_fn).collect();
+    TraitDecl(id.to_owned(), fns)
+}
+
+fn parse_trait_fn(node: Pair<Rule>) -> TraitFn {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    let param = parse_param(iter.next().unwrap());
+    let ret = parse_type(iter.next().unwrap());
+    TraitFn {
         name: id.to_owned(),
-        fields: iter.map(|field| field.as_str().to_owned()).collect(),
+        param,
+        ret,
     }
 }
 

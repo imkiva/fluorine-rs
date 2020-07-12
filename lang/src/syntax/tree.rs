@@ -2,7 +2,7 @@ use std::fmt::Formatter;
 
 pub type Ident = String;
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub enum ParseType {
     SelfType,
     OtherType(Ident),
@@ -12,7 +12,7 @@ pub type DBI = usize;
 pub type Argc = DBI;
 pub type ApplyStartDBI = DBI;
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Param {
     pub id: Ident,
     pub ty: Option<ParseType>,
@@ -55,22 +55,30 @@ pub enum Pattern {
     PatWildcard,
 }
 
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
+pub struct PatEnumVariant {
+    pub name: Ident,
+    pub fields: Vec<String>,
+}
+
 #[derive(Debug)]
 pub enum Decl {
     LetDecl(Ident, Expr),
     EnumDecl(Ident, Vec<EnumVariant>),
+    TraitDecl(Ident, Vec<TraitFn>),
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct EnumVariant {
-    pub name: String,
+    pub name: Ident,
     pub field_types: Vec<Ident>,
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
-pub struct PatEnumVariant {
-    pub name: String,
-    pub fields: Vec<String>,
+pub struct TraitFn {
+    pub name: Ident,
+    pub param: Vec<Param>,
+    pub ret: ParseType,
 }
 
 #[derive(Debug)]
