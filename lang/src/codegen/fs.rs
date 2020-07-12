@@ -137,11 +137,7 @@ impl TargetFs for Decl {
 
 impl TargetFs for EnumVariant {
     fn codegen_to_fs(self: Self) -> String {
-        format!(
-            "{}({})",
-            self.name,
-            self.field_types.join(", ")
-        )
+        format!("{}({})", self.name, self.field_types.join(", "))
     }
 }
 
