@@ -5,6 +5,12 @@ pub type Argc = DBI;
 pub type ApplyStartDBI = DBI;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub struct Param {
+    pub id: Ident,
+    pub ty: Option<Ident>,
+}
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum Lit {
     LitNumber(f64),
     LitString(String),
@@ -15,8 +21,8 @@ pub enum Lit {
 pub enum Atom {
     AtomLit(Lit),
     AtomId(Ident),
-    AtomLambda(Argc, ApplyStartDBI, Vec<Expr>),
-    AtomRawLambda(Vec<Ident>, Vec<Expr>),
+    AtomLambda(Vec<Param>, ApplyStartDBI, Vec<Expr>),
+    AtomRawLambda(Vec<Param>, Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]

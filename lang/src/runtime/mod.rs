@@ -6,7 +6,7 @@ use crate::{
         UnitValue,
     },
     syntax::tree::{
-        ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Ident,
+        ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Ident, Param,
         PatEnumVariant,
     },
 };
@@ -65,10 +65,10 @@ pub enum Value {
     NumberValue(f64),
     BoolValue(bool),
     StringValue(String),
-    LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
+    LambdaValue(Vec<Param>, ApplyStartDBI, Vec<Expr>),
     EnumCtor(EnumType, EnumVariant, Vec<Value>),
     EnumValue(EnumType, EnumVariant, Vec<Value>),
-    ForeignLambda(Argc, VecDeque<Value>, Box<FFIClosure>),
+    ForeignLambda(FFIClosure, VecDeque<Value>),
 }
 
 #[derive(Clone, Debug)]
@@ -105,10 +105,13 @@ impl std::fmt::Display for Value {
             NumberValue(v) => write!(f, "{} :: {}", v, self.get_type()),
             BoolValue(v) => write!(f, "{} :: {}", v, self.get_type()),
             StringValue(v) => write!(f, "{} :: {}", v, self.get_type()),
-            LambdaValue(argc, dbi, body) => {
+            LambdaValue(param, dbi, body) => {
                 let gen = FsCodeGenerator::new();
-                let code =
-                    gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
+                let code = gen.partial_codegen_expr(AtomExpr(AtomLambda(
+                    param.clone(),
+                    *dbi,
+                    body.clone(),
+                )));
                 write!(f, "{}", code)
             }
             EnumCtor(ty, variant, fields) | EnumValue(ty, variant, fields) => {
@@ -122,7 +125,7 @@ impl std::fmt::Display for Value {
                 }
                 write!(f, "{}) :: {}", item.join(","), ty.name)
             }
-            ForeignLambda(_, _, _) => write!(f, "<foreign-lambda>"),
+            ForeignLambda(_, _) => write!(f, "<foreign-lambda>"),
         }
     }
 }
@@ -155,10 +158,10 @@ impl Value {
             NumberValue(_) => Type::NumberType,
             BoolValue(_) => Type::BoolType,
             StringValue(_) => Type::StringType,
-            LambdaValue(argc, dbi, _) => Type::LambdaType(argc - dbi),
+            LambdaValue(param, dbi, _) => Type::LambdaType(param.len() - *dbi),
             EnumCtor(ty, _, _) => Type::EnumType(ty.clone()),
             EnumValue(ty, _, _) => Type::EnumType(ty.clone()),
-            ForeignLambda(argc, _, _) => Type::LambdaType(argc.clone()),
+            ForeignLambda(closure, _) => Type::LambdaType(closure.param.len()),
         }
     }
 }

@@ -169,16 +169,21 @@ fn parse_lambda(node: Pair<Rule>) -> Expr {
 }
 
 fn parse_normal_lambda(node: Pair<Rule>) -> Expr {
-    let mut nodes: VecDeque<Pair<Rule>> = node.into_inner().into_iter().collect();
-    let params: Vec<Ident> = nodes
-        .pop_front()
-        .unwrap()
-        .into_inner()
-        .into_iter()
-        .map(|id| id.as_str().to_owned())
-        .collect();
-    let body = parse_expr_list(nodes.pop_back().unwrap());
+    let mut nodes = node.into_inner().into_iter();
+    let params = parse_param(nodes.next().unwrap());
+    let body = parse_expr_list(nodes.next().unwrap());
     AtomExpr(AtomRawLambda(params, body))
+}
+
+fn parse_param(param: Pair<Rule>) -> Vec<Param> {
+    param.into_inner().into_iter().map(parse_id_typed).collect()
+}
+
+fn parse_id_typed(id_typed: Pair<Rule>) -> Param {
+    let mut nodes = id_typed.into_inner().into_iter();
+    let id = nodes.next().unwrap().as_str().to_string();
+    let ty = nodes.next().map(|ty| ty.as_str().to_string());
+    Param { id, ty }
 }
 
 fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
@@ -196,7 +201,20 @@ fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
         Box::new(DBI(0)),
         Box::new(DBI(1)),
     );
-    let lam = AtomLambda(2, 0, vec![body]);
+    let lam = AtomLambda(
+        vec![
+            Param {
+                id: "_1".to_string(),
+                ty: Some("<OP-TRAIT>".to_string()),
+            },
+            Param {
+                id: "_2".to_string(),
+                ty: Some("<OP-TRAIT>".to_string()),
+            },
+        ],
+        0,
+        vec![body],
+    );
     AtomExpr(lam)
 }
 
@@ -290,7 +308,7 @@ fn parse_pat_enum_variant(node: Pair<Rule>) -> PatEnumVariant {
     }
 }
 
-fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Ident>>, expr: Expr) -> Expr {
+fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
     match expr {
         // if this is a unsolved lambda
         AtomExpr(AtomRawLambda(names, body)) => dbi_lambda_body(param_stack, names, body),
@@ -306,20 +324,20 @@ fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Ident>>, expr: Expr) -> Expr {
 }
 
 fn dbi_lambda_body(
-    param_stack: &mut VecDeque<&Vec<Ident>>,
-    names: Vec<Ident>,
+    param_stack: &mut VecDeque<&Vec<Param>>,
+    names: Vec<Param>,
     body: Vec<Expr>,
 ) -> Expr {
     // I know what I am doing!
     unsafe {
         // This is totally SAFE!!!!
-        let ptr: *const Vec<Ident> = &names;
+        let ptr: *const Vec<Param> = &names;
         param_stack.push_front(&*ptr);
     }
 
     // recursively convert variable name to dbi
     let r = AtomExpr(AtomLambda(
-        names.len(),
+        names.clone(),
         0,
         body.iter()
             .map(|raw| dbi_expr(param_stack, raw.clone()))
@@ -330,7 +348,7 @@ fn dbi_lambda_body(
     r
 }
 
-fn dbi_expr(param_stack: &mut VecDeque<&Vec<Ident>>, expr: Expr) -> Expr {
+fn dbi_expr(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
     match &expr {
         // resolve variable name to dbi
         AtomExpr(AtomId(id)) => {
@@ -371,11 +389,11 @@ fn dbi_expr(param_stack: &mut VecDeque<&Vec<Ident>>, expr: Expr) -> Expr {
     }
 }
 
-fn resolve_param(param_stack: &VecDeque<&Vec<Ident>>, name: &str) -> Option<usize> {
+fn resolve_param(param_stack: &VecDeque<&Vec<Param>>, name: &str) -> Option<usize> {
     let mut base_dbi = 0;
 
     for &scope in param_stack {
-        if let Some(index) = scope.into_iter().position(|r| r == name) {
+        if let Some(index) = scope.into_iter().position(|r| r.id.as_str() == name) {
             return Some(base_dbi + index);
         }
         base_dbi += scope.len();

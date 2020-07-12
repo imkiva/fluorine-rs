@@ -57,7 +57,7 @@ postfix_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ","? ~ ")" }
 
 postfix_member = { "." ~ id }
 
-param = { id ~ ("," ~ id)* }
+param = { id_typed ~ ("," ~ id_typed)* ~ ","? }
 
 expr_match = { "match" ~ expr ~ "{" ~ match_case+ ~ "}" }
 
@@ -98,6 +98,7 @@ escape = _{ "\\\\"
 
 decl = { let_decl
        | enum_decl
+       | trait_decl
        }
 
 let_decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
@@ -106,7 +107,15 @@ enum_decl = { "enum" ~ id ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
 
 enum_variant = { id ~ ("(" ~ (id ~ ","?)* ~ ")")? }
 
-id = $ { (ASCII_ALPHA | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+trait_decl = { "trait" ~ id ~ "{" ~ trait_fn* ~ "}" }
+
+trait_fn = { "fn" ~ id ~ "(" ~ param ~ ")" ~ "->" ~ type_ }
+
+type_ = $ { (ASCII_ALPHA_UPPER | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+id = $ { (ASCII_ALPHA_LOWER | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+id_typed = { id ~ (":" ~ type_)? }
 
 UNDERLINE = _ { "_" }
 

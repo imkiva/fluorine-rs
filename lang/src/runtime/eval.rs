@@ -19,7 +19,7 @@ use crate::{
 };
 
 use crate::{
-    ffi::{FFIClosure, FFIFn},
+    ffi::FFIClosure,
     runtime::{
         builtins::Builtins,
         pattern::Matcher,
@@ -337,16 +337,12 @@ impl Context {
     pub fn ffi(
         &mut self,
         name: String,
-        argc: usize,
-        closure: FFIFn,
+        closure: FFIClosure,
     ) -> Result<Option<Value>, RuntimeError> {
+        let argc = closure.param.len();
         self.put_var(
             name,
-            Value::ForeignLambda(
-                argc,
-                VecDeque::with_capacity(argc),
-                FFIClosure::boxed(argc, closure),
-            ),
+            Value::ForeignLambda(closure, VecDeque::with_capacity(argc)),
         )
     }
 
@@ -387,7 +383,8 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
     let arg = arg.partial_eval_with(Some(ctx));
 
     match f.eval_into(ctx)? {
-        LambdaValue(argc, dbi, body) => {
+        LambdaValue(param, dbi, body) => {
+            let argc = param.len();
             debug_assert_ne!(argc, dbi);
             let new_body = body.subst(dbi, &arg).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
@@ -402,7 +399,7 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
                 ctx.pop_scope()?;
                 Ok(result)
             } else {
-                Ok(LambdaValue(argc, dbi + 1, new_body))
+                Ok(LambdaValue(param, dbi + 1, new_body))
             }
         }
 
@@ -418,13 +415,14 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
             }
         }
 
-        ForeignLambda(argc, mut argv, ffi) => {
-            debug_assert_ne!(argc as usize, argv.len());
+        ForeignLambda(closure, mut argv) => {
+            let argc = closure.param.len();
+            debug_assert_ne!(argc, argv.len());
             argv.push_back(arg.eval_into(ctx)?);
-            if argv.len() == argc as usize {
-                ((*ffi).closure)(argv).map_err(|e| e.into())
+            if argv.len() == argc {
+                (closure.closure)(argv).map_err(|e| e.into())
             } else {
-                Ok(ForeignLambda(argc, argv, ffi))
+                Ok(ForeignLambda(closure, argv))
             }
         }
 

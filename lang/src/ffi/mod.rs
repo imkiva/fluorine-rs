@@ -4,12 +4,14 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
+pub use crate::syntax::tree::Param;
+
 pub type FFIParam = VecDeque<Value>;
 pub type FFIResult = Result<Value, FFIError>;
 pub type FFIFn = fn(FFIParam) -> FFIResult;
 
 pub struct FFIClosure {
-    pub argc: usize,
+    pub param: Vec<Param>,
     pub closure: FFIFn,
 }
 
@@ -37,8 +39,6 @@ where
     ) -> Result<Self, FFIError>;
 }
 
-impl Copy for FFIClosure {}
-
 impl Debug for FFIClosure {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "FFIType")
@@ -47,17 +47,20 @@ impl Debug for FFIClosure {
 
 impl Clone for FFIClosure {
     fn clone(&self) -> Self {
-        *self
+        FFIClosure {
+            param: self.param.clone(),
+            closure: self.closure,
+        }
     }
 }
 
 impl FFIClosure {
-    pub fn new(argc: usize, closure: FFIFn) -> Self {
-        Self { argc, closure }
+    pub fn new(param: Vec<Param>, closure: FFIFn) -> Self {
+        Self { param, closure }
     }
 
-    pub fn boxed(argc: usize, closure: FFIFn) -> Box<Self> {
-        Box::new(Self::new(argc, closure))
+    pub fn boxed(param: Vec<Param>, closure: FFIFn) -> Box<Self> {
+        Box::new(Self::new(param, closure))
     }
 }
 

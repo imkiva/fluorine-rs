@@ -5,7 +5,7 @@ extern crate quote;
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
-use syn::{FnArg, Item, ItemFn, ItemMod, Signature};
+use syn::{FnArg, Item, ItemFn, ItemMod, Pat, Signature};
 
 #[proc_macro_attribute]
 pub fn fluorine(attr: TokenStream, body: TokenStream) -> TokenStream {
@@ -93,10 +93,32 @@ fn generate_module_entrance(ffi_mod: String, module: ItemMod) -> TokenStream2 {
             .map(|func| {
                 let func_name = &func.sig.ident;
                 let name_string = format!("{}", func_name);
-                let argc =
-                    syn::parse_str::<syn::Expr>(&format!("{}", func.sig.inputs.len())).unwrap();
+                let param = func.sig.inputs.clone()
+                    .into_iter()
+                    .map(|arg| {
+                        let (id, ty) = match arg {
+                            FnArg::Receiver(_) => unimplemented!("not supported receiver"),
+                            FnArg::Typed(pat) => {
+                                match *pat.pat {
+                                    Pat::Ident(id) => {
+                                        (id.ident, pat.ty.clone())
+                                    },
+                                    _ => unreachable!("not a ident")
+                                }
+                            },
+                        };
+
+                        quote! {
+                            Param {
+                                id: stringify!(#id).to_string(),
+                                ty: Some(stringify!(#ty).to_string()),
+                            }
+                        }
+                    })
+                    .collect::<TokenStream2>();
+
                 quote! {
-                    map.insert(#name_string.to_string(), FFIClosure::new(#argc, #mod_name::#func_name));
+                    map.insert(#name_string.to_string(), FFIClosure::new(vec![#param], #mod_name::#func_name));
                 }
             })
             .collect::<TokenStream2>()

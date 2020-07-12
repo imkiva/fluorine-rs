@@ -52,11 +52,14 @@ impl Subst for Expr {
                 BinaryExpr(op, lhs.subst(dbi, replacement), rhs.subst(dbi, replacement))
             }
 
-            AtomExpr(AtomLambda(nested_argc, nested_dbi, nested_body)) => AtomExpr(AtomLambda(
-                nested_argc,
-                nested_dbi,
-                nested_body.subst(nested_argc + dbi, replacement),
-            )),
+            AtomExpr(AtomLambda(nested_param, nested_dbi, nested_body)) => {
+                let nested_argc = nested_param.len();
+                AtomExpr(AtomLambda(
+                    nested_param,
+                    nested_dbi,
+                    nested_body.subst(nested_argc + dbi, replacement),
+                ))
+            }
 
             ApplyExpr(f, arg) => ApplyExpr(f.subst(dbi, replacement), arg.subst(dbi, replacement)),
 
