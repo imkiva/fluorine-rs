@@ -110,7 +110,7 @@ enum_variant = { enum_ctor ~ ("(" ~ (type_ ~ ","?)* ~ ")")? }
 
 trait_decl = { "trait" ~ type_ ~ "{" ~ trait_fn* ~ "}" }
 
-trait_fn = { "fn" ~ id ~ "(" ~ param ~ ")" ~ "->" ~ type_ }
+trait_fn = { "fn" ~ id ~ "(" ~ param ~ ")" ~ "->" ~ type_ ~ ";"? }
 
 type_ = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 

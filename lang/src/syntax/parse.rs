@@ -183,7 +183,10 @@ fn parse_param(param: Pair<Rule>) -> Vec<Param> {
 fn parse_id_typed(id_typed: Pair<Rule>) -> Param {
     let mut nodes = id_typed.into_inner().into_iter();
     let id = nodes.next().unwrap().as_str().to_string();
-    let ty = nodes.next().map(|ty| ty.as_str().to_string());
+    let ty = nodes.next().map(|ty| match ty.as_str() {
+        "Self" => ParseType::SelfType,
+        ty => ParseType::OtherType(ty.to_string()),
+    });
     Param { id, ty }
 }
 
@@ -206,11 +209,11 @@ fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
         vec![
             Param {
                 id: "_1".to_string(),
-                ty: Some("<OP-TRAIT>".to_string()),
+                ty: Some(ParseType::OtherType("// TODO: <OP-TRAIT>".to_string())),
             },
             Param {
                 id: "_2".to_string(),
-                ty: Some("<OP-TRAIT>".to_string()),
+                ty: Some(ParseType::OtherType("// TODO: <OP-TRAIT>".to_string())),
             },
         ],
         0,

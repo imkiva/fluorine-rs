@@ -4,7 +4,7 @@ use std::{
     fmt::{Debug, Formatter},
 };
 
-pub use crate::syntax::tree::Param;
+pub use crate::syntax::tree::{Param, ParseType};
 
 pub type FFIParam = VecDeque<Value>;
 pub type FFIResult = Result<Value, FFIError>;

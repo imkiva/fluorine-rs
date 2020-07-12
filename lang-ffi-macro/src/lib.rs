@@ -111,7 +111,7 @@ fn generate_module_entrance(ffi_mod: String, module: ItemMod) -> TokenStream2 {
                         quote! {
                             Param {
                                 id: stringify!(#id).to_string(),
-                                ty: Some(stringify!(#ty).to_string()),
+                                ty: Some(ParseType::OtherType(stringify!(#ty).to_string())),
                             }
                         }
                     })

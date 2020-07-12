@@ -1,4 +1,12 @@
+use std::fmt::Formatter;
+
 pub type Ident = String;
+
+#[derive(Debug, PartialEq, PartialOrd, Clone)]
+pub enum ParseType {
+    SelfType,
+    OtherType(Ident),
+}
 
 pub type DBI = usize;
 pub type Argc = DBI;
@@ -7,7 +15,7 @@ pub type ApplyStartDBI = DBI;
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub struct Param {
     pub id: Ident,
-    pub ty: Option<Ident>,
+    pub ty: Option<ParseType>,
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
@@ -72,3 +80,12 @@ pub enum ProgramItem {
 }
 
 pub type Program = Vec<ProgramItem>;
+
+impl std::fmt::Display for ParseType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseType::SelfType => write!(f, "Self"),
+            ParseType::OtherType(ty) => write!(f, "{}", ty),
+        }
+    }
+}
