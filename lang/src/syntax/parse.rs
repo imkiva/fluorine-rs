@@ -151,6 +151,7 @@ fn parse_expr_atom(node: Pair<Rule>) -> Expr {
             Rule::expr_lambda => parse_lambda(child),
             Rule::expr_match => parse_match(child),
             Rule::id => AtomExpr(AtomId(child.as_str().to_owned())),
+            Rule::enum_ctor => AtomExpr(AtomId(child.as_str().to_owned())),
             Rule::literal => AtomExpr(AtomLit(parse_lit(child))),
             _ => {
                 unreachable!("expr primary inner should be expr_quoted, expr_lambda, id or literal")
@@ -295,7 +296,7 @@ fn parse_enum_variant(node: Pair<Rule>) -> EnumVariant {
     let id = iter.next().unwrap().as_str();
     EnumVariant {
         name: id.to_owned(),
-        fields: iter.count(),
+        field_types: iter.map(|ty| ty.as_str().to_string()).collect(),
     }
 }
 

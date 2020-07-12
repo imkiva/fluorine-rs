@@ -116,11 +116,11 @@ impl std::fmt::Display for Value {
             }
             EnumCtor(ty, variant, fields) | EnumValue(ty, variant, fields) => {
                 write!(f, "{}(", variant.name.as_str())?;
-                let mut item = Vec::with_capacity(variant.fields as usize);
+                let mut item = Vec::with_capacity(variant.field_types.len());
                 for field in fields {
                     item.push(format!("{}", field));
                 }
-                for _ in item.len()..variant.fields as usize {
+                for _ in item.len()..variant.field_types.len() {
                     item.push("_".to_owned());
                 }
                 write!(f, "{}) :: {}", item.join(","), ty.name)
@@ -187,7 +187,7 @@ impl EnumType {
     pub fn has_pat_variant(&self, variant: &PatEnumVariant) -> bool {
         self.variants
             .iter()
-            .position(|v| v.name == variant.name && v.fields == variant.fields.len())
+            .position(|v| v.name == variant.name && v.field_types.len() == variant.fields.len())
             .is_some()
     }
 }

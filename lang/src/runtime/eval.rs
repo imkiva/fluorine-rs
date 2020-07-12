@@ -86,7 +86,7 @@ impl Eval for Decl {
                     variants: variants.clone(),
                 };
                 for variant in &variants {
-                    match variant.fields {
+                    match variant.field_types.len() {
                         0 => ctx.put_var(
                             variant.name.clone(),
                             EnumValue(ty.clone(), variant.clone(), Vec::new()),
@@ -96,7 +96,7 @@ impl Eval for Decl {
                             EnumCtor(
                                 ty.clone(),
                                 variant.clone(),
-                                Vec::with_capacity(variant.fields as usize),
+                                Vec::with_capacity(variant.field_types.len()),
                             ),
                         )?,
                     };
@@ -406,9 +406,9 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
         // We only handle enum constructors that has fields,
         // constructors with no fields are handled in Decl::eval_into()
         EnumCtor(ty, variant, mut fields) => {
-            debug_assert_ne!(variant.fields, fields.len());
+            debug_assert_ne!(variant.field_types.len(), fields.len());
             fields.push(arg.eval_into(ctx)?);
-            if fields.len() == variant.fields {
+            if fields.len() == variant.field_types.len() {
                 Ok(EnumValue(ty, variant, fields))
             } else {
                 Ok(EnumCtor(ty, variant, fields))

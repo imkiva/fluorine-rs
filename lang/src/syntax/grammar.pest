@@ -39,6 +39,7 @@ expr_atom = { "(" ~ expr? ~ ")"
             | expr_match
             | literal
             | id
+            | enum_ctor
             }
 
 expr_lambda = { normal_lambda | quick_lambda }
@@ -103,17 +104,19 @@ decl = { let_decl
 
 let_decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
 
-enum_decl = { "enum" ~ id ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
+enum_decl = { "enum" ~ type_ ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
 
-enum_variant = { id ~ ("(" ~ (id ~ ","?)* ~ ")")? }
+enum_variant = { enum_ctor ~ ("(" ~ (type_ ~ ","?)* ~ ")")? }
 
-trait_decl = { "trait" ~ id ~ "{" ~ trait_fn* ~ "}" }
+trait_decl = { "trait" ~ type_ ~ "{" ~ trait_fn* ~ "}" }
 
 trait_fn = { "fn" ~ id ~ "(" ~ param ~ ")" ~ "->" ~ type_ }
 
-type_ = $ { (ASCII_ALPHA_UPPER | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+type_ = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 
 id = $ { (ASCII_ALPHA_LOWER | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+enum_ctor = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 
 id_typed = { id ~ (":" ~ type_)? }
 

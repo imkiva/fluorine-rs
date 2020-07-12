@@ -140,15 +140,12 @@ impl TargetFs for EnumVariant {
         format!(
             "{}({})",
             self.name,
-            (0..self.fields)
-                .map(|_| "_".to_owned())
-                .collect::<Vec<_>>()
-                .join(", ")
+            self.field_types.join(", ")
         )
     }
 }
 
-fn codegen_lambda(mut param: Vec<Param>, dbi: usize, body: Vec<Expr>) -> String {
+fn codegen_lambda(param: Vec<Param>, dbi: usize, body: Vec<Expr>) -> String {
     let argc = param.len();
     let mut param = param.into_iter().collect::<VecDeque<_>>();
     for _ in 0..dbi {

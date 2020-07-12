@@ -56,7 +56,7 @@ pub enum Decl {
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct EnumVariant {
     pub name: String,
-    pub fields: usize,
+    pub field_types: Vec<Ident>,
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
