@@ -183,10 +183,15 @@ fn parse_param(param: Pair<Rule>) -> Vec<Param> {
 fn parse_id_typed(id_typed: Pair<Rule>) -> Param {
     let mut nodes = id_typed.into_inner().into_iter();
     let id = nodes.next().unwrap().as_str().to_string();
-    let ty = nodes.next().map(|ty| match ty.as_str() {
-        "Self" => ParseType::SelfType,
-        ty => ParseType::OtherType(ty.to_string()),
-    });
+
+    let ty = match id.as_str() {
+        "self" => Some(ParseType::SelfType),
+        _ => nodes.next().map(|ty| match ty.as_str() {
+            "Self" => ParseType::SelfType,
+            ty => ParseType::OtherType(ty.to_string()),
+        }),
+    };
+
     Param { id, ty }
 }
 
