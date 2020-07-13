@@ -1,0 +1,18 @@
+trait Hello {
+    let hi: (self, name: String) -> Unit
+}
+
+impl Hello for Number {
+    let hi = { self, name -> println(name) }
+}
+
+impl Hello for String {
+    let hi = { self, name -> println(self + ": " + name) }
+}
+
+let n = 10086
+n.hi("kiva")
+
+let s = "imkiva"
+s.hi("hello world")
+
