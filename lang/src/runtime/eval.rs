@@ -24,8 +24,8 @@ use crate::{
         builtins::Builtins,
         pattern::Matcher,
         Context, EnumType, RuntimeError,
-        RuntimeError::TypeMismatch,
-        Scope, Value,
+        RuntimeError::{TypeMismatch, TypeNotFound},
+        Scope, TraitType, Type, Value,
         Value::{EnumCtor, EnumValue, ForeignLambda, UnitValue},
     },
     syntax::{
@@ -113,7 +113,18 @@ impl Eval for Decl {
                 ctx.put_trait(name, fns)?;
                 Ok(UnitValue)
             }
-            ImplDecl(tr, ty, fns) => unimplemented!("// TODO"),
+            ImplDecl(tr, ty, fns) => {
+                let fns = fns
+                    .into_iter()
+                    .map(|decl| match decl {
+                        Decl::LetDecl(id, lambda) => (id, lambda.eval_into(ctx).unwrap()),
+                        _ => unreachable!("not a trait fn"),
+                    })
+                    .collect();
+                let ty = ctx.resolve_type(ty)?;
+                ctx.impl_trait(tr, ty, fns)?;
+                Ok(UnitValue)
+            }
         }
     }
 }
@@ -353,6 +364,65 @@ impl Context {
         Ok(())
     }
 
+    fn impl_trait(
+        &mut self,
+        tr: Ident,
+        ty: Type,
+        fns: HashMap<Ident, Value>,
+    ) -> Result<(), RuntimeError> {
+        // TODO: impl trait tr for ty
+        Ok(())
+    }
+
+    fn resolve_type(&self, name: String) -> Result<Type, RuntimeError> {
+        match name.as_str() {
+            "Unit" => Ok(Type::UnitType),
+            "Number" => Ok(Type::NumberType),
+            "Bool" => Ok(Type::BoolType),
+            "String" => Ok(Type::StringType),
+            _ => match self.resolve_enum(name.clone()) {
+                Ok(e) => Ok(Type::EnumType(e)),
+                _ => self.resolve_trait(name).map(Type::TraitType),
+            },
+        }
+    }
+
+    fn resolve_trait(&self, name: String) -> Result<TraitType, RuntimeError> {
+        match self
+            .stack
+            .front()
+            .ok_or(StackUnderflow)?
+            .traits
+            .get(name.as_str())
+        {
+            Some(fns) => Ok(TraitType {
+                name: name.to_string(),
+                fns: fns
+                    .clone()
+                    .into_iter()
+                    .map(|f| (f.name.clone(), f))
+                    .collect(),
+            }),
+            _ => Err(TypeNotFound(name)),
+        }
+    }
+
+    fn resolve_enum(&self, name: String) -> Result<EnumType, RuntimeError> {
+        match self
+            .stack
+            .front()
+            .ok_or(StackUnderflow)?
+            .enums
+            .get(name.as_str())
+        {
+            Some(variants) => Ok(EnumType {
+                name,
+                variants: variants.clone(),
+            }),
+            _ => Err(TypeNotFound(name)),
+        }
+    }
+
     pub fn ffi(
         &mut self,
         name: String,
@@ -393,6 +463,7 @@ impl Scope {
             vars: Default::default(),
             enums: Default::default(),
             traits: Default::default(),
+            impls: Default::default(),
         }
     }
 }

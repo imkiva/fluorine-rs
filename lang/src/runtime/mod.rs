@@ -25,6 +25,7 @@ pub mod subst;
 pub enum RuntimeError {
     StackUnderflow,
     VariableNotFound(String),
+    TypeNotFound(String),
     NotApplicable,
     NonExhaustive,
     TypeMismatch,
@@ -37,6 +38,9 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::StackUnderflow => write!(f, "RuntimeError: stack underflow"),
             RuntimeError::VariableNotFound(id) => {
                 write!(f, "NameError: variable '{}' not found", id)
+            }
+            RuntimeError::TypeNotFound(ty) => {
+                write!(f, "NameError: type '{}' not found", ty)
             }
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
@@ -58,6 +62,7 @@ pub struct Scope {
     pub vars: HashMap<Ident, Value>,
     pub enums: HashMap<Ident, Vec<EnumVariant>>,
     pub traits: HashMap<Ident, Vec<TraitFn>>,
+    pub impls: HashMap<Type, Vec<TraitImpl>>,
 }
 
 #[derive(Clone, Debug)]
@@ -80,12 +85,25 @@ pub enum Type {
     StringType,
     LambdaType(Argc),
     EnumType(EnumType),
+    TraitType(TraitType),
 }
 
 #[derive(Clone, Debug)]
 pub struct EnumType {
     pub name: String,
     pub variants: Vec<EnumVariant>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TraitType {
+    pub name: String,
+    pub fns: HashMap<String, TraitFn>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TraitImpl {
+    pub tr: TraitType,
+    pub impls: HashMap<String, Value>,
 }
 
 pub trait IntoValue {
@@ -176,6 +194,7 @@ impl std::fmt::Display for Type {
             Type::StringType => write!(f, "String"),
             Type::LambdaType(_) => write!(f, "<lambda-type>"),
             Type::EnumType(ty) => write!(f, "{}", ty.name),
+            Type::TraitType(tr) => write!(f, "{}", tr.name),
         }
     }
 }
