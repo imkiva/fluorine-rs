@@ -39,9 +39,7 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::VariableNotFound(id) => {
                 write!(f, "NameError: variable '{}' not found", id)
             }
-            RuntimeError::TypeNotFound(ty) => {
-                write!(f, "NameError: type '{}' not found", ty)
-            }
+            RuntimeError::TypeNotFound(ty) => write!(f, "NameError: type '{}' not found", ty),
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
             RuntimeError::TypeMismatch => {
@@ -77,7 +75,7 @@ pub enum Value {
     ForeignLambda(FFIClosure, VecDeque<Value>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Type {
     UnitType,
     NumberType,
@@ -88,13 +86,13 @@ pub enum Type {
     TraitType(TraitType),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EnumType {
     pub name: String,
     pub variants: Vec<EnumVariant>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TraitType {
     pub name: String,
     pub fns: HashMap<String, TraitFn>,
@@ -104,6 +102,18 @@ pub struct TraitType {
 pub struct TraitImpl {
     pub tr: TraitType,
     pub impls: HashMap<String, Value>,
+}
+
+impl std::hash::Hash for EnumType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state)
+    }
+}
+
+impl std::hash::Hash for TraitType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state)
+    }
 }
 
 pub trait IntoValue {

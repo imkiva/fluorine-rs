@@ -25,7 +25,7 @@ use crate::{
         pattern::Matcher,
         Context, EnumType, RuntimeError,
         RuntimeError::{TypeMismatch, TypeNotFound},
-        Scope, TraitType, Type, Value,
+        Scope, TraitImpl, TraitType, Type, Value,
         Value::{EnumCtor, EnumValue, ForeignLambda, UnitValue},
     },
     syntax::{
@@ -370,7 +370,20 @@ impl Context {
         ty: Type,
         fns: HashMap<Ident, Value>,
     ) -> Result<(), RuntimeError> {
-        // TODO: impl trait tr for ty
+        let trait_impl = TraitImpl {
+            tr: self.resolve_trait(tr)?,
+            impls: fns,
+        };
+
+        let impls = &mut self.stack.front_mut().ok_or(StackUnderflow)?.impls;
+
+        match impls.get_mut(&ty) {
+            Some(impls) => impls.push(trait_impl),
+            _ => {
+                let _ = impls.insert(ty, vec![trait_impl]);
+            }
+        }
+
         Ok(())
     }
 
