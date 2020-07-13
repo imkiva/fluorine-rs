@@ -31,7 +31,7 @@ use crate::{
             Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
             Ident, Lit,
             Lit::{LitBool, LitNumber, LitString},
-            MatchCase, ParseType, Program, ProgramItem,
+            MatchCase, Param, ParseType, Program, ProgramItem,
             ProgramItem::{DeclItem, ExprItem},
             TraitFn,
         },
@@ -359,7 +359,7 @@ impl Context {
         Ok(())
     }
 
-    fn impl_trait(
+    pub fn impl_trait(
         &mut self,
         tr: Ident,
         ty: Type,
@@ -606,7 +606,8 @@ fn eval_match(
 fn eval_member(ctx: &mut Context, lhs: Expr, id: Ident) -> Result<Value, RuntimeError> {
     // TODO: type inference instead of eval
     let lhs = lhs.partial_eval_with(Some(ctx));
-    let ty = lhs.clone().eval_into(ctx)?.get_type();
+    let lhs_value = lhs.clone().eval_into(ctx)?;
+    let ty = lhs_value.get_type();
 
     if let Type::LambdaType(_) = &ty {
         // we do not support impl trait for lambdas
@@ -621,22 +622,52 @@ fn eval_member(ctx: &mut Context, lhs: Expr, id: Ident) -> Result<Value, Runtime
         .filter_map(|it| it.impls.get(id.as_str()))
         .collect::<Vec<_>>();
 
-    let (param, dbi, body) = match found.len() {
+    match found.len() {
         0 => return Err(NoMember(id, ty)),
         1 => match (*found.first().unwrap()).clone() {
-            LambdaValue(param, dbi, body) => (param, dbi, body),
-            _ => unreachable!("not a lambda value"),
+            LambdaValue(param, dbi, body) => eval_member_lambda(ctx, lhs, param, dbi, body),
+            ForeignLambda(ffi, value) => eval_member_foreign(ctx, lhs_value, ffi, value),
+            _ => unreachable!("not a valid trait fn implementation"),
         },
-        _ => return Err(AmbiguousMember(id)),
-    };
+        _ => Err(AmbiguousMember(id)),
+    }
+}
 
+fn eval_member_lambda(
+    ctx: &mut Context,
+    lhs: Expr,
+    param: Vec<Param>,
+    dbi: usize,
+    body: Vec<Expr>,
+) -> Result<Value, RuntimeError> {
+    let argc = param.len();
+    debug_assert_ne!(dbi, argc);
     debug_assert_eq!(dbi, 0);
-    debug_assert_ne!(param.len(), 0);
 
     match (param[0].id.as_str(), &param[0].ty) {
         ("self", Some(ParseType::SelfType)) => {
             let body = body.subst(dbi, &lhs).partial_eval_with(Some(ctx));
             Ok(LambdaValue(param, dbi + 1, body))
+        }
+        _ => unimplemented!("static trait fn not supported"),
+    }
+}
+
+fn eval_member_foreign(
+    _ctx: &mut Context,
+    lhs: Value,
+    ffi: FFIClosure,
+    mut value: VecDeque<Value>,
+) -> Result<Value, RuntimeError> {
+    let dbi = value.len();
+    let argc = ffi.param.len();
+    debug_assert_ne!(dbi, argc);
+    debug_assert_eq!(dbi, 0);
+
+    match (ffi.param[0].id.as_str(), &ffi.param[0].ty) {
+        ("self", Some(ParseType::SelfType)) => {
+            value.push_back(lhs);
+            Ok(ForeignLambda(ffi, value))
         }
         _ => unimplemented!("static trait fn not supported"),
     }

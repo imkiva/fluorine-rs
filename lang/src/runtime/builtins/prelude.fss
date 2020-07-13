@@ -1,0 +1,40 @@
+enum Ordering {
+    Eq,
+    Ne,
+    Gt,
+    Ge,
+    Lt,
+    Le,
+}
+
+trait Add {
+    let add: (self, rhs: Self) -> Self;
+}
+
+trait Sub {
+    let sub: (self, rhs: Self) -> Self;
+}
+
+trait Mul {
+    let mul: (self, rhs: Self) -> Self;
+}
+
+trait Div {
+    let div: (self, rhs: Self) -> Self;
+}
+
+trait Pow {
+    let pow: (self, rhs: Self) -> Self;
+}
+
+trait Mod {
+    let mod: (self, rhs: Self) -> Self;
+}
+
+trait Not {
+    let not: (self, rhs: Unit) -> Self;
+}
+
+trait Cmp {
+    let cmp: (self, rhs: Self) -> Ordering;
+}
