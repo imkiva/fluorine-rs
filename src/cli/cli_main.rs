@@ -13,7 +13,7 @@ use lang::{
 };
 
 use crate::config::Config;
-use lang::{runtime::Value, syntax::Compiler};
+use lang::{runtime::Value, Compiler};
 
 struct REPL {
     rl: Editor<REPLHelper>,
