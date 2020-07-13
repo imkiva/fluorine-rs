@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, VecDeque},
-    ops::Not,
 };
 
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
         Context, EnumType, RuntimeError,
         RuntimeError::{
             AmbiguousMember, ArgSelfTypeNotAllowed, ArgTypeMismatch, NoMember, NonExhaustive,
-            NotApplicable, StackUnderflow, TypeMismatch, TypeNotFound, VariableNotFound,
+            NotApplicable, StackUnderflow, TypeNotFound, VariableNotFound,
         },
         Scope, TraitImpl, TraitType, Type, Value,
         Value::{
@@ -129,44 +128,13 @@ impl Eval for Expr {
         match self {
             Unit => Ok(UnitValue),
             AtomExpr(atom) => atom.eval_into(ctx),
-            UnaryExpr(op, operand) => match op.as_str() {
-                "!" => {
-                    let val = operand.eval_into(ctx)?;
-                    Ok(val.not()?)
-                }
-                _ => unreachable!("Unexpected unary operator"),
-            },
-
-            BinaryExpr(op, lhs, rhs) => {
-                let l = lhs.eval_into(ctx)?;
-                let r = rhs.eval_into(ctx)?;
-
-                match op.as_str() {
-                    "+" => Ok((l + r)?),
-                    "-" => Ok((l - r)?),
-                    "*" => Ok((l * r)?),
-                    "/" => Ok((l / r)?),
-                    "%" => Ok((l % r)?),
-                    "&&" => Ok(l.logical_and(r)?),
-                    "||" => Ok(l.logical_or(r)?),
-                    "^" => Ok((l.pow(r))?),
-                    "==" => Ok(BoolValue(l == r)),
-                    "!=" => Ok(BoolValue(l != r)),
-                    ">" => Ok(BoolValue(l > r)),
-                    ">=" => Ok(BoolValue(l >= r)),
-                    "<" => Ok(BoolValue(l < r)),
-                    "<=" => Ok(BoolValue(l <= r)),
-                    _ => unreachable!("Unexpected binary operator"),
-                }
-            }
-
             ApplyExpr(f, a) => eval_apply(ctx, *f, *a),
-
             MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
-
             MemberExpr(lhs, id) => eval_member(ctx, *lhs, id),
 
             DBI(_) => unreachable!("dangling dbi"),
+            UnaryExpr(_, _) => unreachable!("Desugar bug"),
+            BinaryExpr(_, _, _) => unreachable!("Desugar bug"),
         }
     }
 }
@@ -188,121 +156,6 @@ impl Eval for Lit {
             LitNumber(l) => Ok(NumberValue(l)),
             LitString(l) => Ok(StringValue(l)),
             LitBool(l) => Ok(BoolValue(l)),
-        }
-    }
-}
-
-impl std::ops::Add for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l + r)),
-            (StringValue(l), StringValue(r)) => Ok(StringValue(l + r.as_str())),
-            _ => Err(TypeMismatch),
-        }
-    }
-}
-
-impl std::ops::Sub for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l - r)),
-            _ => Err(TypeMismatch),
-        }
-    }
-}
-
-impl std::ops::Mul for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l * r)),
-            _ => Err(RuntimeError::TypeMismatch),
-        }
-    }
-}
-
-impl std::ops::Div for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn div(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l / r)),
-            _ => Err(RuntimeError::TypeMismatch),
-        }
-    }
-}
-
-impl std::ops::Rem for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn rem(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l % r)),
-            _ => Err(RuntimeError::TypeMismatch),
-        }
-    }
-}
-
-impl std::ops::Not for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn not(self) -> Self::Output {
-        match self {
-            BoolValue(b) => Ok(BoolValue(!b)),
-            _ => Err(RuntimeError::TypeMismatch),
-        }
-    }
-}
-
-trait Pow {
-    type Output;
-    fn pow(self, rhs: Self) -> Self::Output;
-}
-
-impl Pow for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn pow(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (NumberValue(l), NumberValue(r)) => Ok(NumberValue(l.powf(r))),
-            _ => Err(RuntimeError::TypeMismatch),
-        }
-    }
-}
-
-trait NoShortCircuitLogicalAnd {
-    type Output;
-    fn logical_and(self, rhs: Self) -> Self::Output;
-}
-
-trait NoShortCircuitLogicalOr {
-    type Output;
-    fn logical_or(self, rhs: Self) -> Self::Output;
-}
-
-impl NoShortCircuitLogicalAnd for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn logical_and(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (BoolValue(l), BoolValue(r)) => Ok(BoolValue(l && r)),
-            _ => Err(RuntimeError::TypeMismatch),
-        }
-    }
-}
-
-impl NoShortCircuitLogicalOr for Value {
-    type Output = Result<Value, RuntimeError>;
-
-    fn logical_or(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (BoolValue(l), BoolValue(r)) => Ok(BoolValue(l || r)),
-            _ => Err(RuntimeError::TypeMismatch),
         }
     }
 }

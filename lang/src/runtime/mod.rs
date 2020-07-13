@@ -32,7 +32,6 @@ pub enum RuntimeError {
     NoMember(String, Type),
     AmbiguousMember(String),
     NonExhaustive,
-    TypeMismatch,
     FFIError(FFIError),
 }
 
@@ -64,9 +63,6 @@ impl std::fmt::Display for RuntimeError {
             }
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
-            RuntimeError::TypeMismatch => {
-                write!(f, "TypeError: operators can only apply to same types")
-            }
             RuntimeError::FFIError(err) => write!(f, "FFIError: {}", err),
         }
     }

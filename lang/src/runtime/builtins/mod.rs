@@ -156,7 +156,7 @@ impl Builtins {
 
 mod prelude_traits {
     use crate::ffi::*;
-    
+
     type Number = f64;
 
     #[fluorine]
