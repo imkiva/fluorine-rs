@@ -1,18 +1,20 @@
+use std::{collections::VecDeque, result::Result};
+
+use pest::{
+    error::{Error, ErrorVariant},
+    iterators::{Pair, Pairs},
+    Parser,
+};
+
 use crate::syntax::tree::{
+    *,
     Atom::*,
     Decl::*,
     Expr::*,
     Lit::*,
     Pattern::{PatLit, PatVariant, PatWildcard},
     ProgramItem::*,
-    *,
 };
-use pest::{
-    error::{Error, ErrorVariant},
-    iterators::{Pair, Pairs},
-    Parser,
-};
-use std::{collections::VecDeque, result::Result};
 
 #[derive(Parser)]
 #[grammar = "syntax/grammar.pest"]
@@ -38,17 +40,25 @@ fn convert_dbi(input: Program) -> Program {
         .map(|item| match item {
             ExprItem(expr) => ExprItem(dbi_lambda(&mut VecDeque::new(), expr)),
 
-            DeclItem(LetDecl(name, expr)) => {
-                DeclItem(LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr)))
-            }
-
-            DeclItem(EnumDecl(name, variants)) => DeclItem(EnumDecl(name, variants)),
-
-            DeclItem(TraitDecl(name, fns)) => DeclItem(TraitDecl(name, fns)),
-
-            DeclItem(ImplDecl(tr, ty, fns)) => DeclItem(ImplDecl(tr, ty, fns)),
+            DeclItem(decl) => DeclItem(convert_dbi_decl(decl)),
         })
         .collect()
+}
+
+fn convert_dbi_decl(decl: Decl) -> Decl {
+    match decl {
+        LetDecl(name, expr) => {
+            LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr))
+        }
+
+        ImplDecl(tr, ty, fns) => {
+            ImplDecl(tr, ty, fns.into_iter().map(convert_dbi_decl).collect())
+        }
+
+        EnumDecl(name, variants) => EnumDecl(name, variants),
+
+        TraitDecl(name, fns) => TraitDecl(name, fns),
+    }
 }
 
 fn parse_unit(pairs: Pairs<Rule>) -> Program {

@@ -1,21 +1,6 @@
-use crate::{
-    runtime::{
-        subst::Subst,
-        RuntimeError::{NonExhaustive, NotApplicable, StackUnderflow, VariableNotFound},
-        Value::{BoolValue, LambdaValue, NumberValue, StringValue},
-    },
-    syntax::tree::{
-        Atom,
-        Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
-        Decl,
-        Decl::LetDecl,
-        Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
-        Ident, Lit,
-        Lit::{LitBool, LitNumber, LitString},
-        MatchCase, Program, ProgramItem,
-        ProgramItem::{DeclItem, ExprItem},
-    },
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::Not,
 };
 
 use crate::{
@@ -23,25 +8,36 @@ use crate::{
     runtime::{
         builtins::Builtins,
         pattern::Matcher,
+        subst::Subst,
         Context, EnumType, RuntimeError,
-        RuntimeError::{TypeMismatch, TypeNotFound},
+        RuntimeError::{
+            AmbiguousMember, NoMember, NonExhaustive, NotApplicable, StackUnderflow, TypeMismatch,
+            TypeNotFound, VariableNotFound,
+        },
         Scope, TraitImpl, TraitType, Type, Value,
-        Value::{EnumCtor, EnumValue, ForeignLambda, UnitValue},
+        Value::{
+            BoolValue, EnumCtor, EnumValue, ForeignLambda, LambdaValue, NumberValue, StringValue,
+            UnitValue,
+        },
     },
     syntax::{
         pe::{PEContext, PartialEval},
         tree::{
-            Decl::{EnumDecl, ImplDecl, TraitDecl},
-            EnumVariant,
-            Expr::MemberExpr,
+            Atom,
+            Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
+            Decl,
+            Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
+            EnumVariant, Expr,
+            Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
+            Ident, Lit,
+            Lit::{LitBool, LitNumber, LitString},
+            MatchCase, Program, ProgramItem,
+            ProgramItem::{DeclItem, ExprItem},
             TraitFn,
         },
     },
 };
-use std::{
-    collections::{HashMap, VecDeque},
-    ops::Not,
-};
+use crate::syntax::tree::ParseType;
 
 pub(crate) trait Eval {
     fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError>;
@@ -169,7 +165,7 @@ impl Eval for Expr {
 
             MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
 
-            MemberExpr(lhs, id) => unimplemented!("// TODO"),
+            MemberExpr(lhs, id) => eval_member(ctx, *lhs, id),
 
             DBI(_) => unreachable!("dangling dbi"),
         }
@@ -387,6 +383,13 @@ impl Context {
         Ok(())
     }
 
+    fn get_impl_for(&self, ty: &Type) -> Result<Option<&Vec<TraitImpl>>, RuntimeError> {
+        match self.stack.front().ok_or(StackUnderflow)?.impls.get(ty) {
+            Some(impls) => Ok(Some(impls)),
+            _ => Ok(None),
+        }
+    }
+
     fn resolve_type(&self, name: String) -> Result<Type, RuntimeError> {
         match name.as_str() {
             "Unit" => Ok(Type::UnitType),
@@ -559,5 +562,42 @@ fn eval_match(
             result
         }
         _ => Err(NonExhaustive),
+    }
+}
+
+fn eval_member(ctx: &mut Context, lhs: Expr, id: Ident) -> Result<Value, RuntimeError> {
+    // TODO: type inference instead of eval
+    let lhs = lhs.partial_eval_with(Some(ctx));
+    let ty = lhs.clone().eval_into(ctx)?.get_type();
+
+    if let Type::LambdaType(_) = &ty {
+        // we do not support impl trait for lambdas
+        return Err(NoMember(id, ty));
+    }
+
+    let impls = ctx.get_impl_for(&ty)?.ok_or(NoMember(id.clone(), ty.clone()))?;
+    let found = impls
+        .iter()
+        .filter_map(|it| it.impls.get(id.as_str()))
+        .collect::<Vec<_>>();
+
+    let (param, dbi, body) = match found.len() {
+        0 => return Err(NoMember(id, ty)),
+        1 => match (*found.first().unwrap()).clone() {
+            LambdaValue(param, dbi, body) => (param, dbi, body),
+            _ => unreachable!("not a lambda value"),
+        },
+        _ => return Err(AmbiguousMember(id)),
+    };
+
+    debug_assert_eq!(dbi, 0);
+    debug_assert_ne!(param.len(), 0);
+
+    match (param[0].id.as_str(), &param[0].ty) {
+        ("self", Some(ParseType::SelfType)) => {
+            let body = body.subst(dbi, &lhs).partial_eval_with(Some(ctx));
+            Ok(LambdaValue(param, dbi + 1, body))
+        },
+        _ => unimplemented!("static trait fn not supported"),
     }
 }

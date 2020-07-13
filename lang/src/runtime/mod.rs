@@ -27,6 +27,8 @@ pub enum RuntimeError {
     VariableNotFound(String),
     TypeNotFound(String),
     NotApplicable,
+    NoMember(String, Type),
+    AmbiguousMember(String),
     NonExhaustive,
     TypeMismatch,
     FFIError(FFIError),
@@ -40,6 +42,12 @@ impl std::fmt::Display for RuntimeError {
                 write!(f, "NameError: variable '{}' not found", id)
             }
             RuntimeError::TypeNotFound(ty) => write!(f, "NameError: type '{}' not found", ty),
+            RuntimeError::NoMember(member, ty) => {
+                write!(f, "NameError: no member '{}' found in type '{}'", member, ty)
+            },
+            RuntimeError::AmbiguousMember(member) => {
+                write!(f, "NameError: multiple candidate found for '{}'", member)
+            }
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
             RuntimeError::TypeMismatch => {
