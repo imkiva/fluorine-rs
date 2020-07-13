@@ -9,15 +9,11 @@ use rustyline::{
 
 use lang::{
     runtime::Context,
-    syntax::{
-        optimize::Optimizer,
-        parse::{CompileError, FsParser},
-        tree::Program,
-    },
+    syntax::{parse::CompileError, tree::Program},
 };
 
 use crate::config::Config;
-use lang::runtime::Value;
+use lang::{runtime::Value, syntax::Compiler};
 
 struct REPL {
     rl: Editor<REPLHelper>,
@@ -218,7 +214,7 @@ impl Drop for REPL {
 }
 
 fn compile(cfg: &Config, input: &str) -> Result<Program, CompileError> {
-    FsParser::ast(input).map(|ast| Optimizer::run(ast, cfg.opt_level.clone()))
+    Compiler::compile(cfg.opt_level.clone(), input)
 }
 
 fn compile_and_run(show_unit: bool, cfg: &Config, ctx: &mut Context, file: &str, input: &str) {
