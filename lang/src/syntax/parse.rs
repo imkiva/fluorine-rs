@@ -7,13 +7,13 @@ use pest::{
 };
 
 use crate::syntax::tree::{
-    *,
     Atom::*,
     Decl::*,
     Expr::*,
     Lit::*,
     Pattern::{PatLit, PatVariant, PatWildcard},
     ProgramItem::*,
+    *,
 };
 
 #[derive(Parser)]
@@ -47,13 +47,9 @@ fn convert_dbi(input: Program) -> Program {
 
 fn convert_dbi_decl(decl: Decl) -> Decl {
     match decl {
-        LetDecl(name, expr) => {
-            LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr))
-        }
+        LetDecl(name, expr) => LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr)),
 
-        ImplDecl(tr, ty, fns) => {
-            ImplDecl(tr, ty, fns.into_iter().map(convert_dbi_decl).collect())
-        }
+        ImplDecl(tr, ty, fns) => ImplDecl(tr, ty, fns.into_iter().map(convert_dbi_decl).collect()),
 
         EnumDecl(name, variants) => EnumDecl(name, variants),
 
@@ -301,7 +297,7 @@ fn parse_lit(lit: Pair<Rule>) -> Lit {
             let s = lit.as_str().to_owned();
             let s = s[1..s.len() - 1].into();
             LitString(unescaped(s))
-        },
+        }
         Rule::bool_lit => LitBool(lit.as_str().parse::<bool>().unwrap()),
         _ => unreachable!("unsupported literal type: {:?}", lit.as_rule()),
     }

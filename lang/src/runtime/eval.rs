@@ -31,13 +31,12 @@ use crate::{
             Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
             Ident, Lit,
             Lit::{LitBool, LitNumber, LitString},
-            MatchCase, Program, ProgramItem,
+            MatchCase, ParseType, Program, ProgramItem,
             ProgramItem::{DeclItem, ExprItem},
             TraitFn,
         },
     },
 };
-use crate::syntax::tree::ParseType;
 
 pub(crate) trait Eval {
     fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError>;
@@ -575,7 +574,9 @@ fn eval_member(ctx: &mut Context, lhs: Expr, id: Ident) -> Result<Value, Runtime
         return Err(NoMember(id, ty));
     }
 
-    let impls = ctx.get_impl_for(&ty)?.ok_or(NoMember(id.clone(), ty.clone()))?;
+    let impls = ctx
+        .get_impl_for(&ty)?
+        .ok_or(NoMember(id.clone(), ty.clone()))?;
     let found = impls
         .iter()
         .filter_map(|it| it.impls.get(id.as_str()))
@@ -597,7 +598,7 @@ fn eval_member(ctx: &mut Context, lhs: Expr, id: Ident) -> Result<Value, Runtime
         ("self", Some(ParseType::SelfType)) => {
             let body = body.subst(dbi, &lhs).partial_eval_with(Some(ctx));
             Ok(LambdaValue(param, dbi + 1, body))
-        },
+        }
         _ => unimplemented!("static trait fn not supported"),
     }
 }
