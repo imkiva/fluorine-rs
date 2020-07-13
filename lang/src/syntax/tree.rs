@@ -1,8 +1,22 @@
-pub type Name = String;
+use std::fmt::Formatter;
+
+pub type Ident = String;
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum ParseType {
+    SelfType,
+    OtherType(Ident),
+}
 
 pub type DBI = usize;
 pub type Argc = DBI;
 pub type ApplyStartDBI = DBI;
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct Param {
+    pub id: Ident,
+    pub ty: Option<ParseType>,
+}
 
 #[derive(Debug, PartialEq, PartialOrd, Clone)]
 pub enum Lit {
@@ -14,9 +28,9 @@ pub enum Lit {
 #[derive(Debug, Clone)]
 pub enum Atom {
     AtomLit(Lit),
-    AtomId(Name),
-    AtomLambda(Argc, ApplyStartDBI, Vec<Expr>),
-    AtomRawLambda(Vec<Name>, Vec<Expr>),
+    AtomId(Ident),
+    AtomLambda(Vec<Param>, ApplyStartDBI, Vec<Expr>),
+    AtomRawLambda(Vec<Param>, Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]
@@ -27,6 +41,7 @@ pub enum Expr {
     UnaryExpr(String, Box<Expr>),
     BinaryExpr(String, Box<Expr>, Box<Expr>),
     ApplyExpr(Box<Expr>, Box<Expr>),
+    MemberExpr(Box<Expr>, Ident),
     MatchExpr(Box<Expr>, Vec<MatchCase>),
 }
 
@@ -40,22 +55,31 @@ pub enum Pattern {
     PatWildcard,
 }
 
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
+pub struct PatEnumVariant {
+    pub name: Ident,
+    pub fields: Vec<String>,
+}
+
 #[derive(Debug)]
 pub enum Decl {
-    LetDecl(Name, Expr),
-    EnumDecl(Name, Vec<EnumVariant>),
+    LetDecl(Ident, Expr),
+    EnumDecl(Ident, Vec<EnumVariant>),
+    TraitDecl(Ident, Vec<TraitFn>),
+    ImplDecl(Ident, Ident, Vec<Decl>),
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct EnumVariant {
-    pub name: String,
-    pub fields: usize,
+    pub name: Ident,
+    pub field_types: Vec<Ident>,
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
-pub struct PatEnumVariant {
-    pub name: String,
-    pub fields: Vec<String>,
+pub struct TraitFn {
+    pub name: Ident,
+    pub param: Vec<Param>,
+    pub ret: ParseType,
 }
 
 #[derive(Debug)]
@@ -65,3 +89,12 @@ pub enum ProgramItem {
 }
 
 pub type Program = Vec<ProgramItem>;
+
+impl std::fmt::Display for ParseType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseType::SelfType => write!(f, "Self"),
+            ParseType::OtherType(ty) => write!(f, "{}", ty),
+        }
+    }
+}

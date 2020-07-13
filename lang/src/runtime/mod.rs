@@ -6,8 +6,8 @@ use crate::{
         UnitValue,
     },
     syntax::tree::{
-        ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Name,
-        PatEnumVariant,
+        ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Ident, Param,
+        PatEnumVariant, TraitFn, DBI,
     },
 };
 use std::{
@@ -25,7 +25,12 @@ pub mod subst;
 pub enum RuntimeError {
     StackUnderflow,
     VariableNotFound(String),
+    TypeNotFound(String),
+    ArgSelfTypeNotAllowed(DBI),
+    ArgTypeMismatch(DBI, Type, Type),
     NotApplicable,
+    NoMember(String, Type),
+    AmbiguousMember(String),
     NonExhaustive,
     TypeMismatch,
     FFIError(FFIError),
@@ -37,6 +42,25 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::StackUnderflow => write!(f, "RuntimeError: stack underflow"),
             RuntimeError::VariableNotFound(id) => {
                 write!(f, "NameError: variable '{}' not found", id)
+            }
+            RuntimeError::TypeNotFound(ty) => write!(f, "NameError: type '{}' not found", ty),
+            RuntimeError::ArgSelfTypeNotAllowed(index) => write!(
+                f,
+                "TypeError: argument {}: use of 'Self' type is not allowed",
+                index
+            ),
+            RuntimeError::ArgTypeMismatch(index, expected, got) => write!(
+                f,
+                "TypeError: argument {}: expected type '{}', but got '{}'",
+                index, expected, got
+            ),
+            RuntimeError::NoMember(member, ty) => write!(
+                f,
+                "NameError: no member '{}' found in type '{}'",
+                member, ty
+            ),
+            RuntimeError::AmbiguousMember(member) => {
+                write!(f, "NameError: multiple candidate found for '{}'", member)
             }
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
@@ -55,8 +79,10 @@ pub struct Context {
 
 #[derive(Debug)]
 pub struct Scope {
-    pub vars: HashMap<Name, Value>,
-    pub enums: HashMap<Name, Vec<EnumVariant>>,
+    pub vars: HashMap<Ident, Value>,
+    pub enums: HashMap<Ident, Vec<EnumVariant>>,
+    pub traits: HashMap<Ident, Vec<TraitFn>>,
+    pub impls: HashMap<Type, Vec<TraitImpl>>,
 }
 
 #[derive(Clone, Debug)]
@@ -65,13 +91,13 @@ pub enum Value {
     NumberValue(f64),
     BoolValue(bool),
     StringValue(String),
-    LambdaValue(Argc, ApplyStartDBI, Vec<Expr>),
+    LambdaValue(Vec<Param>, ApplyStartDBI, Vec<Expr>),
     EnumCtor(EnumType, EnumVariant, Vec<Value>),
     EnumValue(EnumType, EnumVariant, Vec<Value>),
-    ForeignLambda(Argc, VecDeque<Value>, Box<FFIClosure>),
+    ForeignLambda(FFIClosure, VecDeque<Value>),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Type {
     UnitType,
     NumberType,
@@ -79,12 +105,37 @@ pub enum Type {
     StringType,
     LambdaType(Argc),
     EnumType(EnumType),
+    TraitType(TraitType),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EnumType {
     pub name: String,
     pub variants: Vec<EnumVariant>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TraitType {
+    pub name: String,
+    pub fns: HashMap<String, TraitFn>,
+}
+
+#[derive(Clone, Debug)]
+pub struct TraitImpl {
+    pub tr: TraitType,
+    pub impls: HashMap<String, Value>,
+}
+
+impl std::hash::Hash for EnumType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state)
+    }
+}
+
+impl std::hash::Hash for TraitType {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state)
+    }
 }
 
 pub trait IntoValue {
@@ -105,24 +156,27 @@ impl std::fmt::Display for Value {
             NumberValue(v) => write!(f, "{} :: {}", v, self.get_type()),
             BoolValue(v) => write!(f, "{} :: {}", v, self.get_type()),
             StringValue(v) => write!(f, "{} :: {}", v, self.get_type()),
-            LambdaValue(argc, dbi, body) => {
+            LambdaValue(param, dbi, body) => {
                 let gen = FsCodeGenerator::new();
-                let code =
-                    gen.partial_codegen_expr(AtomExpr(AtomLambda(*argc, *dbi, body.clone())));
+                let code = gen.partial_codegen_expr(AtomExpr(AtomLambda(
+                    param.clone(),
+                    *dbi,
+                    body.clone(),
+                )));
                 write!(f, "{}", code)
             }
             EnumCtor(ty, variant, fields) | EnumValue(ty, variant, fields) => {
                 write!(f, "{}(", variant.name.as_str())?;
-                let mut item = Vec::with_capacity(variant.fields as usize);
+                let mut item = Vec::with_capacity(variant.field_types.len());
                 for field in fields {
                     item.push(format!("{}", field));
                 }
-                for _ in item.len()..variant.fields as usize {
+                for _ in item.len()..variant.field_types.len() {
                     item.push("_".to_owned());
                 }
                 write!(f, "{}) :: {}", item.join(","), ty.name)
             }
-            ForeignLambda(_, _, _) => write!(f, "<foreign-lambda>"),
+            ForeignLambda(_, _) => write!(f, "<foreign-lambda>"),
         }
     }
 }
@@ -155,10 +209,10 @@ impl Value {
             NumberValue(_) => Type::NumberType,
             BoolValue(_) => Type::BoolType,
             StringValue(_) => Type::StringType,
-            LambdaValue(argc, dbi, _) => Type::LambdaType(argc - dbi),
+            LambdaValue(param, dbi, _) => Type::LambdaType(param.len() - *dbi),
             EnumCtor(ty, _, _) => Type::EnumType(ty.clone()),
             EnumValue(ty, _, _) => Type::EnumType(ty.clone()),
-            ForeignLambda(argc, _, _) => Type::LambdaType(argc.clone()),
+            ForeignLambda(closure, _) => Type::LambdaType(closure.param.len()),
         }
     }
 }
@@ -172,6 +226,7 @@ impl std::fmt::Display for Type {
             Type::StringType => write!(f, "String"),
             Type::LambdaType(_) => write!(f, "<lambda-type>"),
             Type::EnumType(ty) => write!(f, "{}", ty.name),
+            Type::TraitType(tr) => write!(f, "{}", tr.name),
         }
     }
 }
@@ -184,7 +239,7 @@ impl EnumType {
     pub fn has_pat_variant(&self, variant: &PatEnumVariant) -> bool {
         self.variants
             .iter()
-            .position(|v| v.name == variant.name && v.fields == variant.fields.len())
+            .position(|v| v.name == variant.name && v.field_types.len() == variant.fields.len())
             .is_some()
     }
 }

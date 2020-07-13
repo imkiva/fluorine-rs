@@ -6,7 +6,7 @@
 
 unit = { (WHITESPACE | COMMENT | decl | expr)* ~ EOI }
 
-expr = { expr_relational ~ (logical_op ~ expr_relational)* ~ SEMI? }
+expr = { expr_relational ~ (logical_op ~ expr_relational)* ~ ";"? }
 
 expr_list = { expr+ }
 
@@ -31,7 +31,7 @@ expr_binary_level2 = { expr_binary_level3 ~ (level2_op ~ expr_binary_level3)* }
 expr_binary_level3 = { expr_unary ~ (level3_op ~ expr_unary)? }
 
 expr_unary = { unary_op ~ expr_unary
-             | expr_atom ~ expr_apply*
+             | expr_atom ~ atom_postfix*
              }
 
 expr_atom = { "(" ~ expr? ~ ")"
@@ -39,6 +39,7 @@ expr_atom = { "(" ~ expr? ~ ")"
             | expr_match
             | literal
             | id
+            | enum_ctor
             }
 
 expr_lambda = { normal_lambda | quick_lambda }
@@ -49,15 +50,21 @@ quick_lambda = { UNDERLINE ~ quick_lambda_ops ~ UNDERLINE }
 
 quick_lambda_ops = _ { logical_op | relational_op | level1_op | level2_op | level3_op }
 
-expr_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ")" }
+atom_postfix = { postfix_apply
+               | postfix_member
+               }
 
-param = { id ~ ("," ~ id)* }
+postfix_apply = { "(" ~ expr ~ ("," ~ expr)* ~ ","? ~ ")" }
+
+postfix_member = { "." ~ id }
+
+param = { id_typed ~ ("," ~ id_typed)* ~ ","? }
 
 expr_match = { "match" ~ expr ~ "{" ~ match_case+ ~ "}" }
 
 match_case = { pattern ~ "=>" ~ expr ~ ","? }
 
-pattern = { literal | UNDERLINE | enum_variant }
+pattern = { literal | UNDERLINE | pat_enum_variant }
 
 literal = { number_lit
           | bool_lit
@@ -92,19 +99,35 @@ escape = _{ "\\\\"
 
 decl = { let_decl
        | enum_decl
+       | trait_decl
+       | impl_decl
        }
 
-let_decl = { "let" ~ id ~ "=" ~ expr ~ SEMI? }
+let_decl = { "let" ~ id ~ "=" ~ expr ~ ";"? }
 
-enum_decl = { "enum" ~ id ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
+enum_decl = { "enum" ~ type_ ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
 
-enum_variant = { id ~ ("(" ~ (id ~ ","?)* ~ ")")? }
+enum_variant = { enum_ctor ~ ("(" ~ (type_ ~ ","?)* ~ ")")? }
 
-id = $ { (ASCII_ALPHA | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+pat_enum_variant = { enum_ctor ~ ("(" ~ (id ~ ","?)* ~ ")")? }
+
+trait_decl = { "trait" ~ type_ ~ "{" ~ trait_fn* ~ "}" }
+
+trait_fn = { "let" ~ id ~ ":" ~ "(" ~ param ~ ")" ~ "->" ~ type_ ~ ";"? }
+
+impl_decl = { "impl" ~ type_ ~ "for" ~ type_ ~ "{" ~ impl_fn* ~ "}" }
+
+impl_fn = { "let" ~ id ~ "=" ~ normal_lambda ~ ";"? }
+
+type_ = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+id = $ { (ASCII_ALPHA_LOWER | UNDERLINE | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+enum_ctor = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
+
+id_typed = { id ~ (":" ~ type_)? }
 
 UNDERLINE = _ { "_" }
-
-SEMI = _ { ";" }
 
 WHITESPACE = _ { " "
                | "\t"

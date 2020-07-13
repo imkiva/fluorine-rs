@@ -5,14 +5,15 @@ use crate::{
         Atom,
         Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
         Decl,
-        Decl::{EnumDecl, LetDecl},
+        Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
         EnumVariant, Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
+        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
         Lit,
         Lit::{LitBool, LitNumber, LitString},
-        MatchCase, Pattern,
+        MatchCase, Param, ParseType, Pattern, TraitFn,
     },
 };
+use std::collections::VecDeque;
 
 pub struct FsCodeGenerator;
 
@@ -96,7 +97,7 @@ impl TargetFs for Atom {
         match self {
             AtomLit(lit) => lit.codegen_to_fs(),
             AtomId(id) => id,
-            AtomLambda(argc, dbi, body) => codegen_lambda(argc, dbi, body),
+            AtomLambda(param, dbi, body) => codegen_lambda(param, dbi, body),
             AtomRawLambda(param, body) => codegen_raw_lambda(param, body),
         }
     }
@@ -117,6 +118,7 @@ impl TargetFs for Expr {
                 matchee.codegen_to_fs(),
                 cases.codegen_to_fs()
             ),
+            MemberExpr(lhs, id) => format!("{}.{}", lhs.codegen_to_fs(), id.as_str()),
             DBI(_) => unreachable!("dangling DBI outside lambda"),
         }
     }
@@ -129,41 +131,88 @@ impl TargetFs for Decl {
             EnumDecl(name, variants) => {
                 format!("enum {} {{\n{}\n}}", name, variants.codegen_to_fs())
             }
+            TraitDecl(name, fns) => format!("trait {} {{\n{}\n}}", name, fns.codegen_to_fs()),
+            ImplDecl(tr, ty, fns) => {
+                format!("impl {} for {} {{\n{}\n}}", tr, ty, fns.codegen_to_fs())
+            }
         }
     }
 }
 
 impl TargetFs for EnumVariant {
     fn codegen_to_fs(self: Self) -> String {
+        format!("{}({})", self.name, self.field_types.join(", "))
+    }
+}
+
+impl TargetFs for TraitFn {
+    fn codegen_to_fs(self: Self) -> String {
         format!(
-            "{}({})",
+            "fn {}({}) -> {};",
             self.name,
-            (0..self.fields)
-                .map(|_| "_".to_owned())
-                .collect::<Vec<_>>()
-                .join(", ")
+            self.param.codegen_to_fs(),
+            self.ret.codegen_to_fs()
         )
     }
 }
 
-fn codegen_lambda(argc: usize, dbi: usize, body: Vec<Expr>) -> String {
-    let (param, body) = (dbi..argc)
-        .into_iter()
-        .map(|i| (i, format!("a{}", i)))
-        .fold((Vec::new(), body), |(mut params, body), (dbi, name)| {
-            params.push(name.clone());
-            let replacement = AtomExpr(AtomId(name));
-            (
-                params,
-                body.into_iter()
-                    .map(|expr| expr.subst(dbi, &replacement))
-                    .collect(),
-            )
-        });
-
-    codegen_raw_lambda(param, body)
+impl TargetFs for Param {
+    fn codegen_to_fs(self: Self) -> String {
+        format!(
+            "{}{}",
+            self.id,
+            match self.ty {
+                Some(ty) => format!(": {}", ty),
+                _ => "".to_string(),
+            }
+        )
+    }
 }
 
-fn codegen_raw_lambda(param: Vec<String>, body: Vec<Expr>) -> String {
-    format!("{{ {} -> {} }}", param.join(", "), body.codegen_to_fs())
+impl TargetFs for ParseType {
+    fn codegen_to_fs(self: Self) -> String {
+        match self {
+            ParseType::SelfType => "Self".to_string(),
+            ParseType::OtherType(ty) => ty,
+        }
+    }
+}
+
+fn codegen_lambda(param: Vec<Param>, dbi: usize, body: Vec<Expr>) -> String {
+    let argc = param.len();
+    let mut param = param.into_iter().collect::<VecDeque<_>>();
+    for _ in 0..dbi {
+        let _ = param.pop_front();
+    }
+
+    let body = (dbi..argc)
+        .into_iter()
+        .zip(param.iter())
+        .fold(body, |body, (dbi, p)| {
+            let replacement = AtomExpr(AtomId(p.id.clone()));
+            body.into_iter()
+                .map(|expr| expr.subst(dbi, &replacement))
+                .collect()
+        });
+
+    codegen_raw_lambda(param.into_iter().collect(), body)
+}
+
+fn codegen_raw_lambda(param: Vec<Param>, body: Vec<Expr>) -> String {
+    format!(
+        "{{ {} -> {} }}",
+        param
+            .into_iter()
+            .map(|param| format!(
+                "{}{}",
+                param.id,
+                match param.ty {
+                    Some(ty) => format!(": {}", ty),
+                    _ => format!(""),
+                }
+            ))
+            .collect::<Vec<_>>()
+            .join(", "),
+        body.codegen_to_fs()
+    )
 }

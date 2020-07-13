@@ -1,3 +1,11 @@
+use std::{collections::VecDeque, result::Result};
+
+use pest::{
+    error::{Error, ErrorVariant},
+    iterators::{Pair, Pairs},
+    Parser,
+};
+
 use crate::syntax::tree::{
     Atom::*,
     Decl::*,
@@ -7,12 +15,6 @@ use crate::syntax::tree::{
     ProgramItem::*,
     *,
 };
-use pest::{
-    error::{Error, ErrorVariant},
-    iterators::{Pair, Pairs},
-    Parser,
-};
-use std::{collections::VecDeque, result::Result};
 
 #[derive(Parser)]
 #[grammar = "syntax/grammar.pest"]
@@ -38,13 +40,21 @@ fn convert_dbi(input: Program) -> Program {
         .map(|item| match item {
             ExprItem(expr) => ExprItem(dbi_lambda(&mut VecDeque::new(), expr)),
 
-            DeclItem(LetDecl(name, expr)) => {
-                DeclItem(LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr)))
-            }
-
-            DeclItem(EnumDecl(name, variants)) => DeclItem(EnumDecl(name, variants)),
+            DeclItem(decl) => DeclItem(convert_dbi_decl(decl)),
         })
         .collect()
+}
+
+fn convert_dbi_decl(decl: Decl) -> Decl {
+    match decl {
+        LetDecl(name, expr) => LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr)),
+
+        ImplDecl(tr, ty, fns) => ImplDecl(tr, ty, fns.into_iter().map(convert_dbi_decl).collect()),
+
+        EnumDecl(name, variants) => EnumDecl(name, variants),
+
+        TraitDecl(name, fns) => TraitDecl(name, fns),
+    }
 }
 
 fn parse_unit(pairs: Pairs<Rule>) -> Program {
@@ -118,12 +128,27 @@ fn parse_expr_unary(node: Pair<Rule>) -> Expr {
             let primary = parse_expr_atom(first);
             nodes
                 .into_iter()
-                .flat_map(|apply| apply.into_inner())
-                .fold(primary, |lhs, arg| {
-                    ApplyExpr(Box::new(lhs), Box::new(parse_expr(arg)))
-                })
+                .flat_map(|postfix| postfix.into_inner())
+                .fold(primary, build_apply_or_member)
         }
         _ => unreachable!("expr unary inner should be expr_primary or unary_op"),
+    }
+}
+
+fn build_apply_or_member(lhs: Expr, postfix: Pair<Rule>) -> Expr {
+    match postfix.as_rule() {
+        Rule::postfix_apply => postfix
+            .into_inner()
+            .into_iter()
+            .map(|expr| parse_expr(expr))
+            .fold(lhs, |lhs, arg| ApplyExpr(Box::new(lhs), Box::new(arg))),
+
+        Rule::postfix_member => {
+            let id = postfix.into_inner().next().unwrap().as_str().to_owned();
+            MemberExpr(Box::new(lhs), id)
+        }
+
+        _ => unreachable!("not a postfix"),
     }
 }
 
@@ -136,6 +161,7 @@ fn parse_expr_atom(node: Pair<Rule>) -> Expr {
             Rule::expr_lambda => parse_lambda(child),
             Rule::expr_match => parse_match(child),
             Rule::id => AtomExpr(AtomId(child.as_str().to_owned())),
+            Rule::enum_ctor => AtomExpr(AtomId(child.as_str().to_owned())),
             Rule::literal => AtomExpr(AtomLit(parse_lit(child))),
             _ => {
                 unreachable!("expr primary inner should be expr_quoted, expr_lambda, id or literal")
@@ -154,16 +180,33 @@ fn parse_lambda(node: Pair<Rule>) -> Expr {
 }
 
 fn parse_normal_lambda(node: Pair<Rule>) -> Expr {
-    let mut nodes: VecDeque<Pair<Rule>> = node.into_inner().into_iter().collect();
-    let params: Vec<Name> = nodes
-        .pop_front()
-        .unwrap()
-        .into_inner()
-        .into_iter()
-        .map(|id| id.as_str().to_owned())
-        .collect();
-    let body = parse_expr_list(nodes.pop_back().unwrap());
+    let mut nodes = node.into_inner().into_iter();
+    let params = parse_param(nodes.next().unwrap());
+    let body = parse_expr_list(nodes.next().unwrap());
     AtomExpr(AtomRawLambda(params, body))
+}
+
+fn parse_param(param: Pair<Rule>) -> Vec<Param> {
+    param.into_inner().into_iter().map(parse_id_typed).collect()
+}
+
+fn parse_id_typed(id_typed: Pair<Rule>) -> Param {
+    let mut nodes = id_typed.into_inner().into_iter();
+    let id = nodes.next().unwrap().as_str().to_string();
+
+    let ty = match id.as_str() {
+        "self" => Some(ParseType::SelfType),
+        _ => nodes.next().map(parse_type),
+    };
+
+    Param { id, ty }
+}
+
+fn parse_type(node: Pair<Rule>) -> ParseType {
+    match node.as_str() {
+        "Self" => ParseType::SelfType,
+        ty => ParseType::OtherType(ty.to_string()),
+    }
 }
 
 fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
@@ -181,7 +224,20 @@ fn parse_quick_lambda(node: Pair<Rule>) -> Expr {
         Box::new(DBI(0)),
         Box::new(DBI(1)),
     );
-    let lam = AtomLambda(2, 0, vec![body]);
+    let lam = AtomLambda(
+        vec![
+            Param {
+                id: "_1".to_string(),
+                ty: Some(ParseType::OtherType("// TODO: <OP-TRAIT>".to_string())),
+            },
+            Param {
+                id: "_2".to_string(),
+                ty: Some(ParseType::OtherType("// TODO: <OP-TRAIT>".to_string())),
+            },
+        ],
+        0,
+        vec![body],
+    );
     AtomExpr(lam)
 }
 
@@ -210,10 +266,19 @@ fn parse_pattern(pat: Pair<Rule>) -> Pattern {
     match pat.into_inner().next() {
         Some(non_wildcard) => match non_wildcard.as_rule() {
             Rule::literal => PatLit(parse_lit(non_wildcard)),
-            Rule::enum_variant => PatVariant(parse_pat_enum_variant(non_wildcard)),
+            Rule::pat_enum_variant => PatVariant(parse_pat_enum_variant(non_wildcard)),
             _ => unreachable!("internal error: invalid pattern"),
         },
         _ => PatWildcard,
+    }
+}
+
+fn parse_pat_enum_variant(node: Pair<Rule>) -> PatEnumVariant {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    PatEnumVariant {
+        name: id.to_owned(),
+        fields: iter.map(|field| field.as_str().to_owned()).collect(),
     }
 }
 
@@ -228,9 +293,47 @@ fn parse_lit(lit: Pair<Rule>) -> Lit {
     let lit = lit.into_inner().next().unwrap();
     match lit.as_rule() {
         Rule::number_lit => LitNumber(lit.as_str().parse::<f64>().unwrap()),
-        Rule::string_lit => LitString(lit.as_str().to_owned()),
+        Rule::string_lit => {
+            let s = lit.as_str().to_owned();
+            let s = s[1..s.len() - 1].into();
+            LitString(unescaped(s))
+        }
         Rule::bool_lit => LitBool(lit.as_str().parse::<bool>().unwrap()),
         _ => unreachable!("unsupported literal type: {:?}", lit.as_rule()),
+    }
+}
+
+fn unescaped(input: &str) -> String {
+    let mut str = String::with_capacity(input.len());
+    let mut escape = false;
+    for ch in input.chars() {
+        if escape {
+            escape = false;
+            str.push(unescaped_char(ch));
+        } else {
+            match ch {
+                '\\' => escape = true,
+                _ => str.push(ch),
+            }
+        }
+    }
+    str
+}
+
+fn unescaped_char(ch: char) -> char {
+    match ch {
+        't' => '\t',
+        'n' => '\n',
+        'r' => '\r',
+        'a' => '\u{07}',
+        'b' => '\u{08}',
+        'f' => '\u{0C}',
+        'v' => '\u{0B}',
+        '0' => '\0',
+        '\'' => '\'',
+        '\"' => '\"',
+        '\\' => '\\',
+        _ => ch,
     }
 }
 
@@ -239,6 +342,8 @@ fn parse_decl(node: Pair<Rule>) -> Decl {
     match child.as_rule() {
         Rule::let_decl => parse_let_decl(child),
         Rule::enum_decl => parse_enum_decl(child),
+        Rule::trait_decl => parse_trait_decl(child),
+        Rule::impl_decl => parse_impl_decl(child),
         _ => unreachable!("unsupported decl type: {:?}", child.as_rule()),
     }
 }
@@ -262,20 +367,45 @@ fn parse_enum_variant(node: Pair<Rule>) -> EnumVariant {
     let id = iter.next().unwrap().as_str();
     EnumVariant {
         name: id.to_owned(),
-        fields: iter.count(),
+        field_types: iter.map(|ty| ty.as_str().to_string()).collect(),
     }
 }
 
-fn parse_pat_enum_variant(node: Pair<Rule>) -> PatEnumVariant {
+fn parse_trait_decl(node: Pair<Rule>) -> Decl {
     let mut iter = node.into_inner().into_iter();
     let id = iter.next().unwrap().as_str();
-    PatEnumVariant {
+    let fns = iter.map(parse_trait_fn).collect();
+    TraitDecl(id.to_owned(), fns)
+}
+
+fn parse_trait_fn(node: Pair<Rule>) -> TraitFn {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    let param = parse_param(iter.next().unwrap());
+    let ret = parse_type(iter.next().unwrap());
+    TraitFn {
         name: id.to_owned(),
-        fields: iter.map(|field| field.as_str().to_owned()).collect(),
+        param,
+        ret,
     }
 }
 
-fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
+fn parse_impl_decl(node: Pair<Rule>) -> Decl {
+    let mut iter = node.into_inner().into_iter();
+    let tr = iter.next().unwrap().as_str();
+    let ty = iter.next().unwrap().as_str();
+    let fns = iter.map(parse_impl_fn).collect();
+    ImplDecl(tr.to_owned(), ty.to_owned(), fns)
+}
+
+fn parse_impl_fn(node: Pair<Rule>) -> Decl {
+    let mut iter = node.into_inner().into_iter();
+    let id = iter.next().unwrap().as_str();
+    let lambda = parse_normal_lambda(iter.next().unwrap());
+    LetDecl(id.to_owned(), lambda)
+}
+
+fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
     match expr {
         // if this is a unsolved lambda
         AtomExpr(AtomRawLambda(names, body)) => dbi_lambda_body(param_stack, names, body),
@@ -291,20 +421,20 @@ fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
 }
 
 fn dbi_lambda_body(
-    param_stack: &mut VecDeque<&Vec<Name>>,
-    names: Vec<Name>,
+    param_stack: &mut VecDeque<&Vec<Param>>,
+    names: Vec<Param>,
     body: Vec<Expr>,
 ) -> Expr {
     // I know what I am doing!
     unsafe {
         // This is totally SAFE!!!!
-        let ptr: *const Vec<Name> = &names;
+        let ptr: *const Vec<Param> = &names;
         param_stack.push_front(&*ptr);
     }
 
     // recursively convert variable name to dbi
     let r = AtomExpr(AtomLambda(
-        names.len(),
+        names.clone(),
         0,
         body.iter()
             .map(|raw| dbi_expr(param_stack, raw.clone()))
@@ -315,7 +445,7 @@ fn dbi_lambda_body(
     r
 }
 
-fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
+fn dbi_expr(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
     match &expr {
         // resolve variable name to dbi
         AtomExpr(AtomId(id)) => {
@@ -356,11 +486,11 @@ fn dbi_expr(param_stack: &mut VecDeque<&Vec<Name>>, expr: Expr) -> Expr {
     }
 }
 
-fn resolve_param(param_stack: &VecDeque<&Vec<Name>>, name: &str) -> Option<usize> {
+fn resolve_param(param_stack: &VecDeque<&Vec<Param>>, name: &str) -> Option<usize> {
     let mut base_dbi = 0;
 
     for &scope in param_stack {
-        if let Some(index) = scope.into_iter().position(|r| r == name) {
+        if let Some(index) = scope.into_iter().position(|r| r.id.as_str() == name) {
             return Some(base_dbi + index);
         }
         base_dbi += scope.len();

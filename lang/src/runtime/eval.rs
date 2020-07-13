@@ -1,41 +1,41 @@
-use crate::{
-    runtime::{
-        subst::Subst,
-        RuntimeError::{NonExhaustive, NotApplicable, StackUnderflow, VariableNotFound},
-        Value::{BoolValue, LambdaValue, NumberValue, StringValue},
-    },
-    syntax::tree::{
-        Atom,
-        Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
-        Decl,
-        Decl::LetDecl,
-        Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, Unit, DBI},
-        Lit,
-        Lit::{LitBool, LitNumber, LitString},
-        MatchCase, Name, Program, ProgramItem,
-        ProgramItem::{DeclItem, ExprItem},
-    },
-};
-
-use crate::{
-    ffi::{FFIClosure, FFIFn},
-    runtime::{
-        builtins::Builtins,
-        pattern::Matcher,
-        Context, EnumType, RuntimeError,
-        RuntimeError::TypeMismatch,
-        Scope, Value,
-        Value::{EnumCtor, EnumValue, ForeignLambda, UnitValue},
-    },
-    syntax::{
-        pe::{PEContext, PartialEval},
-        tree::{Decl::EnumDecl, EnumVariant},
-    },
-};
 use std::{
     collections::{HashMap, VecDeque},
     ops::Not,
+};
+
+use crate::{
+    ffi::FFIClosure,
+    runtime::{
+        builtins::Builtins,
+        pattern::Matcher,
+        subst::Subst,
+        Context, EnumType, RuntimeError,
+        RuntimeError::{
+            AmbiguousMember, ArgSelfTypeNotAllowed, ArgTypeMismatch, NoMember, NonExhaustive,
+            NotApplicable, StackUnderflow, TypeMismatch, TypeNotFound, VariableNotFound,
+        },
+        Scope, TraitImpl, TraitType, Type, Value,
+        Value::{
+            BoolValue, EnumCtor, EnumValue, ForeignLambda, LambdaValue, NumberValue, StringValue,
+            UnitValue,
+        },
+    },
+    syntax::{
+        pe::{PEContext, PartialEval},
+        tree::{
+            Atom,
+            Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
+            Decl,
+            Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
+            EnumVariant, Expr,
+            Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
+            Ident, Lit,
+            Lit::{LitBool, LitNumber, LitString},
+            MatchCase, ParseType, Program, ProgramItem,
+            ProgramItem::{DeclItem, ExprItem},
+            TraitFn,
+        },
+    },
 };
 
 pub(crate) trait Eval {
@@ -86,7 +86,7 @@ impl Eval for Decl {
                     variants: variants.clone(),
                 };
                 for variant in &variants {
-                    match variant.fields {
+                    match variant.field_types.len() {
                         0 => ctx.put_var(
                             variant.name.clone(),
                             EnumValue(ty.clone(), variant.clone(), Vec::new()),
@@ -96,12 +96,28 @@ impl Eval for Decl {
                             EnumCtor(
                                 ty.clone(),
                                 variant.clone(),
-                                Vec::with_capacity(variant.fields as usize),
+                                Vec::with_capacity(variant.field_types.len()),
                             ),
                         )?,
                     };
                 }
                 ctx.put_enum(name, variants)?;
+                Ok(UnitValue)
+            }
+            TraitDecl(name, fns) => {
+                ctx.put_trait(name, fns)?;
+                Ok(UnitValue)
+            }
+            ImplDecl(tr, ty, fns) => {
+                let fns = fns
+                    .into_iter()
+                    .map(|decl| match decl {
+                        Decl::LetDecl(id, lambda) => (id, lambda.eval_into(ctx).unwrap()),
+                        _ => unreachable!("not a trait fn"),
+                    })
+                    .collect();
+                let ty = ctx.resolve_type(ty)?;
+                ctx.impl_trait(tr, ty, fns)?;
                 Ok(UnitValue)
             }
         }
@@ -147,6 +163,8 @@ impl Eval for Expr {
             ApplyExpr(f, a) => eval_apply(ctx, *f, *a),
 
             MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
+
+            MemberExpr(lhs, id) => eval_member(ctx, *lhs, id),
 
             DBI(_) => unreachable!("dangling dbi"),
         }
@@ -304,7 +322,7 @@ impl Context {
         input.eval_into(self)
     }
 
-    fn put_var(&mut self, name: Name, value: Value) -> Result<Option<Value>, RuntimeError> {
+    fn put_var(&mut self, name: Ident, value: Value) -> Result<Option<Value>, RuntimeError> {
         Ok(self
             .stack
             .front_mut()
@@ -332,19 +350,103 @@ impl Context {
         Ok(())
     }
 
+    fn put_trait(&mut self, name: String, fns: Vec<TraitFn>) -> Result<(), RuntimeError> {
+        self.stack
+            .front_mut()
+            .ok_or(StackUnderflow)?
+            .traits
+            .insert(name, fns);
+        Ok(())
+    }
+
+    fn impl_trait(
+        &mut self,
+        tr: Ident,
+        ty: Type,
+        fns: HashMap<Ident, Value>,
+    ) -> Result<(), RuntimeError> {
+        let trait_impl = TraitImpl {
+            tr: self.resolve_trait(tr)?,
+            impls: fns,
+        };
+
+        let impls = &mut self.stack.front_mut().ok_or(StackUnderflow)?.impls;
+
+        match impls.get_mut(&ty) {
+            Some(impls) => impls.push(trait_impl),
+            _ => {
+                let _ = impls.insert(ty, vec![trait_impl]);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn get_impl_for(&self, ty: &Type) -> Result<Option<&Vec<TraitImpl>>, RuntimeError> {
+        match self.stack.front().ok_or(StackUnderflow)?.impls.get(ty) {
+            Some(impls) => Ok(Some(impls)),
+            _ => Ok(None),
+        }
+    }
+
+    fn resolve_type(&self, name: String) -> Result<Type, RuntimeError> {
+        match name.as_str() {
+            "Unit" => Ok(Type::UnitType),
+            "Number" => Ok(Type::NumberType),
+            "Bool" => Ok(Type::BoolType),
+            "String" => Ok(Type::StringType),
+            _ => match self.resolve_enum(name.clone()) {
+                Ok(e) => Ok(Type::EnumType(e)),
+                _ => self.resolve_trait(name).map(Type::TraitType),
+            },
+        }
+    }
+
+    fn resolve_trait(&self, name: String) -> Result<TraitType, RuntimeError> {
+        match self
+            .stack
+            .front()
+            .ok_or(StackUnderflow)?
+            .traits
+            .get(name.as_str())
+        {
+            Some(fns) => Ok(TraitType {
+                name: name.to_string(),
+                fns: fns
+                    .clone()
+                    .into_iter()
+                    .map(|f| (f.name.clone(), f))
+                    .collect(),
+            }),
+            _ => Err(TypeNotFound(name)),
+        }
+    }
+
+    fn resolve_enum(&self, name: String) -> Result<EnumType, RuntimeError> {
+        match self
+            .stack
+            .front()
+            .ok_or(StackUnderflow)?
+            .enums
+            .get(name.as_str())
+        {
+            Some(variants) => Ok(EnumType {
+                name,
+                variants: variants.clone(),
+            }),
+            _ => Err(TypeNotFound(name)),
+        }
+    }
+
     pub fn ffi(
         &mut self,
         name: String,
-        argc: usize,
-        closure: FFIFn,
+        closure: FFIClosure,
     ) -> Result<Option<Value>, RuntimeError> {
+        let argc = closure.param.len();
         self.put_var(
             name,
-            Value::ForeignLambda(
-                argc,
-                VecDeque::with_capacity(argc),
-                FFIClosure::boxed(argc, closure),
-            ),
+            Value::ForeignLambda(closure, VecDeque::with_capacity(argc)),
         )
     }
 
@@ -375,8 +477,32 @@ impl Scope {
         Scope {
             vars: Default::default(),
             enums: Default::default(),
+            traits: Default::default(),
+            impls: Default::default(),
         }
     }
+}
+
+fn check_param(
+    ctx: &mut Context,
+    index: usize,
+    expected: Option<ParseType>,
+    arg: &Expr,
+) -> Result<(), RuntimeError> {
+    if let Some(ty) = expected {
+        let expected = match ty {
+            ParseType::SelfType => return Err(ArgSelfTypeNotAllowed(index)),
+            ParseType::OtherType(name) => ctx.resolve_type(name)?,
+        };
+
+        // TODO: type inference instead of eval
+        let got = arg.clone().eval_into(ctx)?.get_type();
+        if expected != got {
+            return Err(ArgTypeMismatch(index, expected, got));
+        }
+    }
+
+    Ok(())
 }
 
 fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeError> {
@@ -385,8 +511,12 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
     let arg = arg.partial_eval_with(Some(ctx));
 
     match f.eval_into(ctx)? {
-        LambdaValue(argc, dbi, body) => {
+        LambdaValue(param, dbi, body) => {
+            let argc = param.len();
             debug_assert_ne!(argc, dbi);
+
+            check_param(ctx, dbi, param[dbi].ty.clone(), &arg)?;
+
             let new_body = body.subst(dbi, &arg).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
                 ctx.new_scope();
@@ -400,29 +530,44 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
                 ctx.pop_scope()?;
                 Ok(result)
             } else {
-                Ok(LambdaValue(argc, dbi + 1, new_body))
+                Ok(LambdaValue(param, dbi + 1, new_body))
             }
         }
 
         // We only handle enum constructors that has fields,
         // constructors with no fields are handled in Decl::eval_into()
         EnumCtor(ty, variant, mut fields) => {
-            debug_assert_ne!(variant.fields, fields.len());
+            let argc = variant.field_types.len();
+            let dbi = fields.len();
+            debug_assert_ne!(argc, dbi);
+            check_param(
+                ctx,
+                dbi,
+                Some(ParseType::OtherType(variant.field_types[dbi].clone())),
+                &arg,
+            )?;
+
             fields.push(arg.eval_into(ctx)?);
-            if fields.len() == variant.fields {
+            if dbi + 1 == argc {
                 Ok(EnumValue(ty, variant, fields))
             } else {
                 Ok(EnumCtor(ty, variant, fields))
             }
         }
 
-        ForeignLambda(argc, mut argv, ffi) => {
-            debug_assert_ne!(argc as usize, argv.len());
+        ForeignLambda(closure, mut argv) => {
+            let argc = closure.param.len();
+            let dbi = argv.len();
+            debug_assert_ne!(argc, dbi);
+
+            // We don't check parameter type of ffi lambda,
+            // because they are checked when the ffi call happens.
+
             argv.push_back(arg.eval_into(ctx)?);
-            if argv.len() == argc as usize {
-                ((*ffi).closure)(argv).map_err(|e| e.into())
+            if dbi + 1 == argc {
+                (closure.closure)(argv).map_err(|e| e.into())
             } else {
-                Ok(ForeignLambda(argc, argv, ffi))
+                Ok(ForeignLambda(closure, argv))
             }
         }
 
@@ -455,5 +600,44 @@ fn eval_match(
             result
         }
         _ => Err(NonExhaustive),
+    }
+}
+
+fn eval_member(ctx: &mut Context, lhs: Expr, id: Ident) -> Result<Value, RuntimeError> {
+    // TODO: type inference instead of eval
+    let lhs = lhs.partial_eval_with(Some(ctx));
+    let ty = lhs.clone().eval_into(ctx)?.get_type();
+
+    if let Type::LambdaType(_) = &ty {
+        // we do not support impl trait for lambdas
+        return Err(NoMember(id, ty));
+    }
+
+    let impls = ctx
+        .get_impl_for(&ty)?
+        .ok_or(NoMember(id.clone(), ty.clone()))?;
+    let found = impls
+        .iter()
+        .filter_map(|it| it.impls.get(id.as_str()))
+        .collect::<Vec<_>>();
+
+    let (param, dbi, body) = match found.len() {
+        0 => return Err(NoMember(id, ty)),
+        1 => match (*found.first().unwrap()).clone() {
+            LambdaValue(param, dbi, body) => (param, dbi, body),
+            _ => unreachable!("not a lambda value"),
+        },
+        _ => return Err(AmbiguousMember(id)),
+    };
+
+    debug_assert_eq!(dbi, 0);
+    debug_assert_ne!(param.len(), 0);
+
+    match (param[0].id.as_str(), &param[0].ty) {
+        ("self", Some(ParseType::SelfType)) => {
+            let body = body.subst(dbi, &lhs).partial_eval_with(Some(ctx));
+            Ok(LambdaValue(param, dbi + 1, body))
+        }
+        _ => unimplemented!("static trait fn not supported"),
     }
 }

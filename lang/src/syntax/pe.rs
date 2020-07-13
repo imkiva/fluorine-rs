@@ -1,6 +1,6 @@
 use crate::syntax::tree::{
     Atom::{AtomId, AtomLambda, AtomLit},
-    Decl::EnumDecl,
+    Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
     Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},
     Lit::{LitBool, LitNumber},
     ProgramItem::{DeclItem, ExprItem},
@@ -56,8 +56,10 @@ impl PartialEval for Decl {
 
     fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
         match self {
-            Decl::LetDecl(name, expr) => Decl::LetDecl(name, expr.partial_eval_with(ctx)),
-            Decl::EnumDecl(name, variants) => EnumDecl(name, variants),
+            LetDecl(name, expr) => LetDecl(name, expr.partial_eval_with(ctx)),
+            EnumDecl(name, variants) => EnumDecl(name, variants),
+            TraitDecl(name, fns) => TraitDecl(name, fns),
+            ImplDecl(tr, ty, fns) => ImplDecl(tr, ty, fns.partial_eval_with(ctx)),
         }
     }
 }
@@ -154,20 +156,21 @@ fn fold_binary(op: String, lhs: Expr, rhs: Expr, _: Option<&dyn PEContext>) -> E
 
 fn fold_apply(f: Expr, a: Expr, ctx: Option<&dyn PEContext>) -> Expr {
     match f {
-        AtomExpr(AtomLambda(ref argc, ref dbi, ref body)) if *dbi < *argc => {
+        AtomExpr(AtomLambda(param, ref dbi, ref body)) if *dbi < param.len() => {
+            let argc = param.len();
             // the lambda still accepts argument
             let mut new_body: Vec<Expr> = body
                 .into_iter()
                 .map(|expr| subst(*dbi, expr.clone(), &a, ctx))
                 .collect();
 
-            if *dbi == *argc - 1 && new_body.len() == 1 {
+            if *dbi == argc - 1 && new_body.len() == 1 {
                 // 1. full applied after subst
                 // 2. the lambda has only one expr in the body
                 // so we can inline it!
                 new_body.pop().unwrap().partial_eval_with(ctx)
             } else {
-                AtomExpr(AtomLambda(*argc, *dbi + 1, new_body))
+                AtomExpr(AtomLambda(param, *dbi + 1, new_body))
             }
         }
 
@@ -195,14 +198,15 @@ fn subst(dbi: usize, expr: Expr, replacement: &Expr, ctx: Option<&dyn PEContext>
             Box::new(subst(dbi, *rhs, replacement, ctx).partial_eval_with(ctx)),
         ),
 
-        AtomExpr(AtomLambda(nested_argc, nested_dbi, nested_body)) => {
+        AtomExpr(AtomLambda(nested_param, nested_dbi, nested_body)) => {
             let new_body: Vec<Expr> = nested_body
                 .into_iter()
                 .map(|ret_expr| {
-                    subst(nested_argc + dbi, ret_expr, replacement, ctx).partial_eval_with(ctx)
+                    subst(nested_param.len() + dbi, ret_expr, replacement, ctx)
+                        .partial_eval_with(ctx)
                 })
                 .collect();
-            AtomExpr(AtomLambda(nested_argc, nested_dbi, new_body))
+            AtomExpr(AtomLambda(nested_param, nested_dbi, new_body))
         }
 
         ApplyExpr(f, arg) => fold_apply(
