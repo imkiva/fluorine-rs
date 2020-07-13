@@ -11,8 +11,8 @@ use crate::{
         subst::Subst,
         Context, EnumType, RuntimeError,
         RuntimeError::{
-            AmbiguousMember, NoMember, NonExhaustive, NotApplicable, StackUnderflow, TypeMismatch,
-            TypeNotFound, VariableNotFound,
+            AmbiguousMember, ArgSelfTypeNotAllowed, ArgTypeMismatch, NoMember, NonExhaustive,
+            NotApplicable, StackUnderflow, TypeMismatch, TypeNotFound, VariableNotFound,
         },
         Scope, TraitImpl, TraitType, Type, Value,
         Value::{
@@ -483,6 +483,28 @@ impl Scope {
     }
 }
 
+fn check_param(
+    ctx: &mut Context,
+    index: usize,
+    expected: Option<ParseType>,
+    arg: &Expr,
+) -> Result<(), RuntimeError> {
+    if let Some(ty) = expected {
+        let expected = match ty {
+            ParseType::SelfType => return Err(ArgSelfTypeNotAllowed(index)),
+            ParseType::OtherType(name) => ctx.resolve_type(name)?,
+        };
+
+        // TODO: type inference instead of eval
+        let got = arg.clone().eval_into(ctx)?.get_type();
+        if expected != got {
+            return Err(ArgTypeMismatch(index, expected, got));
+        }
+    }
+
+    Ok(())
+}
+
 fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeError> {
     // We should eval the arg into a normalized form as we are binding
     // the arg to the DBI(dbi) expr
@@ -492,6 +514,9 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
         LambdaValue(param, dbi, body) => {
             let argc = param.len();
             debug_assert_ne!(argc, dbi);
+
+            check_param(ctx, dbi, param[dbi].ty.clone(), &arg)?;
+
             let new_body = body.subst(dbi, &arg).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
                 ctx.new_scope();
@@ -512,9 +537,18 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
         // We only handle enum constructors that has fields,
         // constructors with no fields are handled in Decl::eval_into()
         EnumCtor(ty, variant, mut fields) => {
-            debug_assert_ne!(variant.field_types.len(), fields.len());
+            let argc = variant.field_types.len();
+            let dbi = fields.len();
+            debug_assert_ne!(argc, dbi);
+            check_param(
+                ctx,
+                dbi,
+                Some(ParseType::OtherType(variant.field_types[dbi].clone())),
+                &arg,
+            )?;
+
             fields.push(arg.eval_into(ctx)?);
-            if fields.len() == variant.field_types.len() {
+            if dbi + 1 == argc {
                 Ok(EnumValue(ty, variant, fields))
             } else {
                 Ok(EnumCtor(ty, variant, fields))
@@ -523,9 +557,14 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
 
         ForeignLambda(closure, mut argv) => {
             let argc = closure.param.len();
-            debug_assert_ne!(argc, argv.len());
+            let dbi = argv.len();
+            debug_assert_ne!(argc, dbi);
+
+            // We don't check parameter type of ffi lambda,
+            // because they are checked when the ffi call happens.
+
             argv.push_back(arg.eval_into(ctx)?);
-            if argv.len() == argc {
+            if dbi + 1 == argc {
                 (closure.closure)(argv).map_err(|e| e.into())
             } else {
                 Ok(ForeignLambda(closure, argv))

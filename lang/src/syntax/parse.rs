@@ -266,7 +266,7 @@ fn parse_pattern(pat: Pair<Rule>) -> Pattern {
     match pat.into_inner().next() {
         Some(non_wildcard) => match non_wildcard.as_rule() {
             Rule::literal => PatLit(parse_lit(non_wildcard)),
-            Rule::enum_variant => PatVariant(parse_pat_enum_variant(non_wildcard)),
+            Rule::pat_enum_variant => PatVariant(parse_pat_enum_variant(non_wildcard)),
             _ => unreachable!("internal error: invalid pattern"),
         },
         _ => PatWildcard,

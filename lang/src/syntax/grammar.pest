@@ -64,7 +64,7 @@ expr_match = { "match" ~ expr ~ "{" ~ match_case+ ~ "}" }
 
 match_case = { pattern ~ "=>" ~ expr ~ ","? }
 
-pattern = { literal | UNDERLINE | enum_variant }
+pattern = { literal | UNDERLINE | pat_enum_variant }
 
 literal = { number_lit
           | bool_lit
@@ -108,6 +108,8 @@ let_decl = { "let" ~ id ~ "=" ~ expr ~ ";"? }
 enum_decl = { "enum" ~ type_ ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
 
 enum_variant = { enum_ctor ~ ("(" ~ (type_ ~ ","?)* ~ ")")? }
+
+pat_enum_variant = { enum_ctor ~ ("(" ~ (id ~ ","?)* ~ ")")? }
 
 trait_decl = { "trait" ~ type_ ~ "{" ~ trait_fn* ~ "}" }
 

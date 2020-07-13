@@ -7,7 +7,7 @@ use crate::{
     },
     syntax::tree::{
         ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Ident, Param,
-        PatEnumVariant, TraitFn,
+        PatEnumVariant, TraitFn, DBI,
     },
 };
 use std::{
@@ -26,6 +26,8 @@ pub enum RuntimeError {
     StackUnderflow,
     VariableNotFound(String),
     TypeNotFound(String),
+    ArgSelfTypeNotAllowed(DBI),
+    ArgTypeMismatch(DBI, Type, Type),
     NotApplicable,
     NoMember(String, Type),
     AmbiguousMember(String),
@@ -42,6 +44,16 @@ impl std::fmt::Display for RuntimeError {
                 write!(f, "NameError: variable '{}' not found", id)
             }
             RuntimeError::TypeNotFound(ty) => write!(f, "NameError: type '{}' not found", ty),
+            RuntimeError::ArgSelfTypeNotAllowed(index) => write!(
+                f,
+                "TypeError: argument {}: use of 'Self' type is not allowed",
+                index
+            ),
+            RuntimeError::ArgTypeMismatch(index, expected, got) => write!(
+                f,
+                "TypeError: argument {}: expected type '{}', but got '{}'",
+                index, expected, got
+            ),
             RuntimeError::NoMember(member, ty) => write!(
                 f,
                 "NameError: no member '{}' found in type '{}'",

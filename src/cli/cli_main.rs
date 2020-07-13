@@ -17,6 +17,7 @@ use lang::{
 };
 
 use crate::config::Config;
+use lang::runtime::Value;
 
 struct REPL {
     rl: Editor<REPLHelper>,
@@ -199,6 +200,7 @@ impl REPL {
     fn run_code(&mut self, line: String) {
         self.rl.add_history_entry(line.as_str());
         compile_and_run(
+            true,
             &self.cfg,
             &mut self.rl.helper_mut().unwrap().context,
             "<stdin>",
@@ -219,7 +221,7 @@ fn compile(cfg: &Config, input: &str) -> Result<Program, CompileError> {
     FsParser::ast(input).map(|ast| Optimizer::run(ast, cfg.opt_level.clone()))
 }
 
-fn compile_and_run(cfg: &Config, ctx: &mut Context, file: &str, input: &str) {
+fn compile_and_run(show_unit: bool, cfg: &Config, ctx: &mut Context, file: &str, input: &str) {
     match compile(cfg, input) {
         Ok(tree) => {
             if cfg.dump_ast {
@@ -227,6 +229,11 @@ fn compile_and_run(cfg: &Config, ctx: &mut Context, file: &str, input: &str) {
             }
 
             match ctx.source(tree) {
+                Ok(Value::UnitValue) => {
+                    if show_unit {
+                        println!("{}", Value::UnitValue);
+                    }
+                }
                 Ok(v) => println!("{}", v),
                 Err(err) => eprintln!("{}", err),
             }
@@ -240,7 +247,7 @@ pub(crate) fn cli_main(cfg: Config, input: Option<String>) {
         let src = std::fs::read_to_string(input.as_str()).expect("unable to open file");
         let mut ctx = Context::new();
         ctx.load_builtins();
-        compile_and_run(&cfg, &mut ctx, input.as_str(), src.as_str());
+        compile_and_run(false, &cfg, &mut ctx, input.as_str(), src.as_str());
     } else {
         let mut repl = REPL::new(cfg);
         repl.start();
