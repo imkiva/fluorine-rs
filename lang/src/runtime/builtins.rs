@@ -28,6 +28,12 @@ mod prelude_ffi {
 
     #[fluorine]
     fn println(v: Value) {
-        println!("{}", v);
+        match v {
+            Value::UnitValue => println!("()"),
+            Value::NumberValue(n) => println!("{}", n),
+            Value::BoolValue(b) => println!("{}", b),
+            Value::StringValue(s) => println!("{}", s),
+            v => println!("{}", v),
+        }
     }
 }

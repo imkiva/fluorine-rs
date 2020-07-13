@@ -297,9 +297,47 @@ fn parse_lit(lit: Pair<Rule>) -> Lit {
     let lit = lit.into_inner().next().unwrap();
     match lit.as_rule() {
         Rule::number_lit => LitNumber(lit.as_str().parse::<f64>().unwrap()),
-        Rule::string_lit => LitString(lit.as_str().to_owned()),
+        Rule::string_lit => {
+            let s = lit.as_str().to_owned();
+            let s = s[1..s.len() - 1].into();
+            LitString(unescaped(s))
+        },
         Rule::bool_lit => LitBool(lit.as_str().parse::<bool>().unwrap()),
         _ => unreachable!("unsupported literal type: {:?}", lit.as_rule()),
+    }
+}
+
+fn unescaped(input: &str) -> String {
+    let mut str = String::with_capacity(input.len());
+    let mut escape = false;
+    for ch in input.chars() {
+        if escape {
+            escape = false;
+            str.push(unescaped_char(ch));
+        } else {
+            match ch {
+                '\\' => escape = true,
+                _ => str.push(ch),
+            }
+        }
+    }
+    str
+}
+
+fn unescaped_char(ch: char) -> char {
+    match ch {
+        't' => '\t',
+        'n' => '\n',
+        'r' => '\r',
+        'a' => '\u{07}',
+        'b' => '\u{08}',
+        'f' => '\u{0C}',
+        'v' => '\u{0B}',
+        '0' => '\0',
+        '\'' => '\'',
+        '\"' => '\"',
+        '\\' => '\\',
+        _ => ch,
     }
 }
 
