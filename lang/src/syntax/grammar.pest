@@ -121,7 +121,7 @@ impl_fn = { "let" ~ id ~ "=" ~ normal_lambda ~ ";"? }
 
 generic_param = { "<" ~ constrained ~ ("," ~ constrained)* ~ ","? ~ ">" }
 
-constrained = { type_ ~ (":" ~ type_ ~ ("+" ~ type_)*)?  ~ ","? }
+constrained = { type_ ~ (":" ~ type_ ~ ("+" ~ type_)*)? }
 
 type_ = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 

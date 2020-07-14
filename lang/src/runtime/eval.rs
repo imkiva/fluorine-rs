@@ -116,6 +116,7 @@ impl Eval for Decl {
                         _ => unreachable!("not a trait fn"),
                     })
                     .collect();
+                // TODO: check if ty is a generic param
                 let ty = ctx.resolve_type(ty)?;
                 ctx.impl_trait(tr, ty, fns)?;
                 Ok(UnitValue)
