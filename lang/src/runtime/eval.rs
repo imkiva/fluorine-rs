@@ -47,16 +47,12 @@ impl<T: Eval> Eval for Box<T> {
 
 impl<T: Eval> Eval for Vec<T> {
     fn eval_into(self, ctx: &mut Context) -> Result<Value, RuntimeError> {
-        let mut results = Vec::new();
+        let mut value = UnitValue;
         for expr in self {
-            results.push(expr.eval_into(ctx)?);
+            value = expr.eval_into(ctx)?;
         }
 
-        if let Some(r) = results.pop() {
-            Ok(r)
-        } else {
-            Ok(UnitValue)
-        }
+        Ok(value)
     }
 }
 
