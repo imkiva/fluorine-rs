@@ -14,6 +14,7 @@ use crate::{
     },
 };
 use std::collections::VecDeque;
+use crate::syntax::tree::{GenericParam, Constraint};
 
 pub struct FsCodeGenerator;
 
@@ -128,14 +129,48 @@ impl TargetFs for Decl {
     fn codegen_to_fs(self: Self) -> String {
         match self {
             LetDecl(name, expr) => format!("let {} = {}\n", name, expr.codegen_to_fs()),
-            EnumDecl(_, name, variants) => {
-                format!("enum {} {{\n{}\n}}", name, variants.codegen_to_fs())
+            EnumDecl(generic, name, variants) => {
+                format!("enum {}{} {{\n{}\n}}", name, generic.codegen_to_fs(), variants.codegen_to_fs())
             }
             TraitDecl(name, fns) => format!("trait {} {{\n{}\n}}", name, fns.codegen_to_fs()),
-            ImplDecl(_, tr, ty, fns) => {
-                format!("impl {} for {} {{\n{}\n}}", tr, ty, fns.codegen_to_fs())
+            ImplDecl(generic, tr, ty, fns) => {
+                format!("impl{} {} for {} {{\n{}\n}}", generic.codegen_to_fs(), tr, ty, fns.codegen_to_fs())
             }
         }
+    }
+}
+
+impl TargetFs for Vec<GenericParam> {
+    fn codegen_to_fs(self: Self) -> String {
+        if self.is_empty() {
+            return String::new();
+        }
+
+        let code = self.into_iter()
+            .map(|param| {
+                format!("{}{}", param.name, param.constraints.codegen_to_fs())
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        format!("<{}>", code)
+    }
+}
+
+impl TargetFs for Vec<Constraint> {
+    fn codegen_to_fs(self: Self) -> String {
+        if self.is_empty() {
+            return String::new();
+        }
+
+        let code = self.into_iter()
+            .map(|c| match c {
+                Constraint::MustImpl(id) => id
+            })
+            .collect::<Vec<_>>()
+            .join(" + ");
+
+        format!(": {}", code)
     }
 }
 
