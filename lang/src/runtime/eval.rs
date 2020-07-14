@@ -30,7 +30,6 @@ use crate::{
             Lit::{LitBool, LitNumber, LitString},
             MatchCase, Param, ParseType, Program, ProgramItem,
             ProgramItem::{DeclItem, ExprItem},
-            TraitFn,
         },
     },
 };
@@ -105,7 +104,13 @@ impl Eval for Decl {
                 Ok(UnitValue)
             }
             TraitDecl(name, fns) => {
-                ctx.put_trait(name, fns)?;
+                ctx.put_trait(
+                    name.clone(),
+                    TraitType {
+                        name,
+                        fns: fns.into_iter().map(|f| (f.name.clone(), f)).collect(),
+                    },
+                )?;
                 Ok(UnitValue)
             }
             ImplDecl(generic, tr, ty, fns) => {
@@ -205,12 +210,12 @@ impl Context {
         Ok(())
     }
 
-    fn put_trait(&mut self, name: String, fns: Vec<TraitFn>) -> Result<(), RuntimeError> {
+    fn put_trait(&mut self, name: String, tr: TraitType) -> Result<(), RuntimeError> {
         self.stack
             .front_mut()
             .ok_or(StackUnderflow)?
             .traits
-            .insert(name, fns);
+            .insert(name, tr);
         Ok(())
     }
 
@@ -252,7 +257,7 @@ impl Context {
             "String" => Ok(Type::StringType),
             _ => match self.resolve_enum(name.clone()) {
                 Ok(e) => Ok(Type::EnumType(e)),
-                _ => self.resolve_trait(name).map(Type::TraitType),
+                _ => Err(TypeNotFound(name)),
             },
         }
     }
@@ -265,14 +270,7 @@ impl Context {
             .traits
             .get(name.as_str())
         {
-            Some(fns) => Ok(TraitType {
-                name: name.to_string(),
-                fns: fns
-                    .clone()
-                    .into_iter()
-                    .map(|f| (f.name.clone(), f))
-                    .collect(),
-            }),
+            Some(tr) => Ok(tr.clone()),
             _ => Err(TypeNotFound(name)),
         }
     }

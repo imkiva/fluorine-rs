@@ -92,7 +92,7 @@ pub struct Context {
 pub struct Scope {
     pub vars: HashMap<Ident, Value>,
     pub enums: HashMap<Ident, EnumType>,
-    pub traits: HashMap<Ident, Vec<TraitFn>>,
+    pub traits: HashMap<Ident, TraitType>,
     pub impls: HashMap<Type, Vec<TraitImpl>>,
 }
 
@@ -116,7 +116,6 @@ pub enum Type {
     StringType,
     LambdaType(Argc),
     EnumType(EnumType),
-    TraitType(TraitType),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -238,7 +237,6 @@ impl std::fmt::Display for Type {
             Type::StringType => write!(f, "String"),
             Type::LambdaType(_) => write!(f, "<lambda-type>"),
             Type::EnumType(ty) => write!(f, "{}", ty.name),
-            Type::TraitType(tr) => write!(f, "{}", tr.name),
         }
     }
 }
