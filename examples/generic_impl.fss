@@ -1,3 +1,7 @@
+enum Data {
+    Fresh(),
+}
+
 trait Test {
     let test: (self, unit: Unit) -> Unit
 }
@@ -6,13 +10,16 @@ trait AutoTest {
     let auto: (self, unit: Unit, unit: Unit) -> Unit
 }
 
-impl Test for String {
-    let test = { self, unit -> unit }
+impl Test for Data {
+    let test = { self, unit -> println("Test Passed") }
 }
 
 impl<T: Test> AutoTest for T {
     let auto = { self, _, _ -> self.test(()) }
 }
 
-let t = "string"
-t.auto()
+let t = Fresh();
+t.test(());
+t.test(());
+t.test(());
+t.auto((), ());
