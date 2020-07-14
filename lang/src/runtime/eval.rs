@@ -423,7 +423,10 @@ fn satisfy_constraint(impls: &Vec<TraitImpl>, constraint: &Constraint) -> bool {
         Constraint::MustImpl(id) => id,
     };
 
-    impls.iter().position(|i| i.tr.name.as_str() == name).is_some()
+    impls
+        .iter()
+        .position(|i| i.tr.name.as_str() == name)
+        .is_some()
 }
 
 fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeError> {
