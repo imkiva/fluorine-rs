@@ -69,13 +69,13 @@ pub enum Decl {
     ImplDecl(Vec<GenericParam>, Ident, Ident, Vec<Decl>),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenericParam {
     pub name: Ident,
     pub constraints: Vec<Constraint>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Constraint {
     MustImpl(Ident),
 }

@@ -6,8 +6,8 @@ use crate::{
         UnitValue,
     },
     syntax::tree::{
-        ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Ident, Param,
-        PatEnumVariant, TraitFn, DBI,
+        ApplyStartDBI, Argc, Atom::AtomLambda, Constraint, EnumVariant, Expr, Expr::AtomExpr,
+        GenericParam, Ident, Param, PatEnumVariant, TraitFn, DBI,
     },
 };
 use std::{
@@ -28,6 +28,7 @@ pub enum RuntimeError {
     TypeNotFound(String),
     ArgSelfTypeNotAllowed(DBI),
     ArgTypeMismatch(DBI, Type, Type),
+    GenericNotSatisfied(DBI, GenericParam, Type),
     NotApplicable,
     NoMember(String, Type),
     AmbiguousMember(String),
@@ -53,6 +54,20 @@ impl std::fmt::Display for RuntimeError {
                 "TypeError: argument {}: expected type '{}', but got '{}'",
                 index, expected, got
             ),
+            RuntimeError::GenericNotSatisfied(index, generic, got) => write!(
+                f,
+                "TypeError: argument {}: type '{}' does not satisfy generic constraints '{}'",
+                index,
+                got,
+                generic
+                    .constraints
+                    .iter()
+                    .map(|c| match c {
+                        Constraint::MustImpl(tr) => tr.clone(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" + ")
+            ),
             RuntimeError::NoMember(member, ty) => write!(
                 f,
                 "NameError: no member '{}' found in type '{}'",
@@ -76,7 +91,7 @@ pub struct Context {
 #[derive(Debug)]
 pub struct Scope {
     pub vars: HashMap<Ident, Value>,
-    pub enums: HashMap<Ident, Vec<EnumVariant>>,
+    pub enums: HashMap<Ident, EnumType>,
     pub traits: HashMap<Ident, Vec<TraitFn>>,
     pub impls: HashMap<Type, Vec<TraitImpl>>,
 }
@@ -107,6 +122,7 @@ pub enum Type {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EnumType {
     pub name: String,
+    pub generic: Vec<GenericParam>,
     pub variants: Vec<EnumVariant>,
 }
 

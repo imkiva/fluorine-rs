@@ -8,8 +8,8 @@ use crate::{
         subst::Subst,
         Context, EnumType, RuntimeError,
         RuntimeError::{
-            AmbiguousMember, ArgSelfTypeNotAllowed, ArgTypeMismatch, NoMember, NonExhaustive,
-            NotApplicable, StackUnderflow, TypeNotFound, VariableNotFound,
+            AmbiguousMember, ArgSelfTypeNotAllowed, ArgTypeMismatch, GenericNotSatisfied, NoMember,
+            NonExhaustive, NotApplicable, StackUnderflow, TypeNotFound, VariableNotFound,
         },
         Scope, TraitImpl, TraitType, Type, Value,
         Value::{
@@ -22,11 +22,11 @@ use crate::{
         tree::{
             Atom,
             Atom::{AtomId, AtomLambda, AtomLit, AtomRawLambda},
-            Decl,
+            Constraint, Decl,
             Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
-            EnumVariant, Expr,
+            Expr,
             Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
-            Ident, Lit,
+            GenericParam, Ident, Lit,
             Lit::{LitBool, LitNumber, LitString},
             MatchCase, Param, ParseType, Program, ProgramItem,
             ProgramItem::{DeclItem, ExprItem},
@@ -80,8 +80,11 @@ impl Eval for Decl {
             EnumDecl(generic, name, variants) => {
                 let ty = EnumType {
                     name: name.clone(),
+                    generic,
                     variants: variants.clone(),
                 };
+
+                // make each variant a constructor lambda
                 for variant in &variants {
                     match variant.field_types.len() {
                         0 => ctx.put_var(
@@ -98,7 +101,7 @@ impl Eval for Decl {
                         )?,
                     };
                 }
-                ctx.put_enum(name, variants)?;
+                ctx.put_enum(name, ty)?;
                 Ok(UnitValue)
             }
             TraitDecl(name, fns) => {
@@ -192,12 +195,12 @@ impl Context {
         Err(VariableNotFound(name.to_owned()))
     }
 
-    fn put_enum(&mut self, name: String, variants: Vec<EnumVariant>) -> Result<(), RuntimeError> {
+    fn put_enum(&mut self, name: String, e: EnumType) -> Result<(), RuntimeError> {
         self.stack
             .front_mut()
             .ok_or(StackUnderflow)?
             .enums
-            .insert(name, variants);
+            .insert(name, e);
         Ok(())
     }
 
@@ -281,10 +284,7 @@ impl Context {
             .enums
             .get(name.as_str())
         {
-            Some(variants) => Ok(EnumType {
-                name,
-                variants: variants.clone(),
-            }),
+            Some(e) => Ok(e.clone()),
             _ => Err(TypeNotFound(name)),
         }
     }
@@ -334,26 +334,97 @@ impl Scope {
     }
 }
 
-fn check_param(
+fn check_lambda_param(
     ctx: &mut Context,
+    generic: &Vec<GenericParam>,
     index: usize,
     expected: Option<ParseType>,
     arg: &Expr,
 ) -> Result<(), RuntimeError> {
-    if let Some(ty) = expected {
-        let expected = match ty {
-            ParseType::SelfType => return Err(ArgSelfTypeNotAllowed(index)),
-            ParseType::OtherType(name) => ctx.resolve_type(name)?,
-        };
+    match expected {
+        // if provided type, then we check
+        Some(ty) => match ty {
+            // we don't allow Self in lambdas, instead
+            // Self are only allowed in trait fns.
+            ParseType::SelfType => Err(ArgSelfTypeNotAllowed(index)),
+            ParseType::OtherType(name) => {
+                match find_generic(generic, name.clone()) {
+                    Some(generic) => {
+                        // if name is a generic param, we should check constraints
+                        check_generic(ctx, index, generic, arg)
+                    }
+                    _ => {
+                        // otherwise we resolve it as concrete type
+                        check_concrete(ctx, index, ctx.resolve_type(name)?, arg)
+                    }
+                }
+            }
+        },
 
-        // TODO: type inference instead of eval
-        let got = arg.clone().eval_into(ctx)?.get_type();
-        if expected != got {
-            return Err(ArgTypeMismatch(index, expected, got));
-        }
+        // otherwise, we accept
+        _ => Ok(()),
+    }
+}
+
+fn find_generic(generic: &Vec<GenericParam>, name: String) -> Option<GenericParam> {
+    generic
+        .iter()
+        .position(|p| p.name == name)
+        .map(|idx| generic[idx].clone())
+}
+
+fn check_concrete(
+    ctx: &mut Context,
+    index: usize,
+    expected: Type,
+    arg: &Expr,
+) -> Result<(), RuntimeError> {
+    // TODO: type inference instead of eval
+    let got = arg.clone().eval_into(ctx)?.get_type();
+    if expected != got {
+        Err(ArgTypeMismatch(index, expected, got))
+    } else {
+        Ok(())
+    }
+}
+
+fn check_generic(
+    ctx: &mut Context,
+    index: usize,
+    generic: GenericParam,
+    arg: &Expr,
+) -> Result<(), RuntimeError> {
+    // no constraints, just accept
+    if generic.constraints.is_empty() {
+        return Ok(());
     }
 
-    Ok(())
+    // TODO: type inference instead of eval
+    let got = arg.clone().eval_into(ctx)?.get_type();
+    let impls = match ctx.get_impl_for(&got)? {
+        Some(impls) => impls,
+        _ => return Err(GenericNotSatisfied(index, generic, got)),
+    };
+
+    let result = generic
+        .constraints
+        .iter()
+        .map(|c| satisfy_constraint(impls, c))
+        .all(|result| result);
+
+    if result {
+        Ok(())
+    } else {
+        Err(GenericNotSatisfied(index, generic, got))
+    }
+}
+
+fn satisfy_constraint(impls: &Vec<TraitImpl>, constraint: &Constraint) -> bool {
+    let name = match constraint {
+        Constraint::MustImpl(id) => id,
+    };
+
+    impls.iter().position(|i| i.tr.name.as_str() == name).is_some()
 }
 
 fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeError> {
@@ -365,8 +436,7 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
         LambdaValue(param, dbi, body) => {
             let argc = param.len();
             debug_assert_ne!(argc, dbi);
-
-            check_param(ctx, dbi, param[dbi].ty.clone(), &arg)?;
+            check_lambda_param(ctx, &vec![], dbi, param[dbi].ty.clone(), &arg)?;
 
             let new_body = body.subst(dbi, &arg).partial_eval_with(Some(ctx));
             if dbi + 1 == argc {
@@ -391,8 +461,9 @@ fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeErr
             let argc = variant.field_types.len();
             let dbi = fields.len();
             debug_assert_ne!(argc, dbi);
-            check_param(
+            check_lambda_param(
                 ctx,
+                &ty.generic,
                 dbi,
                 Some(ParseType::OtherType(variant.field_types[dbi].clone())),
                 &arg,
