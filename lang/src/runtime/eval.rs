@@ -315,6 +315,10 @@ impl Context {
                 .is_some()
         }
 
+        if generic.constraints.is_empty() {
+            return Ok(true);
+        }
+
         // TODO: should we use get_all_impl_for() ?
         let impls = match self.get_concrete_impl_for(&ty)? {
             impls if impls.is_empty() => return Ok(false),
@@ -459,7 +463,8 @@ fn check_generic(
     generic: GenericParam,
     arg: &Expr,
 ) -> Result<(), RuntimeError> {
-    // no constraints, just accept
+    // no constraints, just accept.
+    // this is a fast-path as we avoided type inference.
     if generic.constraints.is_empty() {
         return Ok(());
     }
