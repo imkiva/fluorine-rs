@@ -184,7 +184,13 @@ impl Context {
     pub fn new() -> Context {
         let mut stack = VecDeque::new();
         stack.push_front(Scope::new());
-        Context { stack }
+        Context {
+            stack,
+            enums: Default::default(),
+            traits: Default::default(),
+            impls: Default::default(),
+            generic_impls: Default::default(),
+        }
     }
 
     pub fn load_builtins(&mut self) {
@@ -215,20 +221,12 @@ impl Context {
     }
 
     fn put_enum(&mut self, name: String, e: EnumType) -> Result<(), RuntimeError> {
-        self.stack
-            .front_mut()
-            .ok_or(StackUnderflow)?
-            .enums
-            .insert(name, e);
+        self.enums.insert(name, e);
         Ok(())
     }
 
     fn put_trait(&mut self, name: String, tr: TraitType) -> Result<(), RuntimeError> {
-        self.stack
-            .front_mut()
-            .ok_or(StackUnderflow)?
-            .traits
-            .insert(name, tr);
+        self.traits.insert(name, tr);
         Ok(())
     }
 
@@ -243,7 +241,7 @@ impl Context {
             impls: fns,
         };
 
-        let impls = &mut self.stack.front_mut().ok_or(StackUnderflow)?.impls;
+        let impls = &mut self.impls;
 
         match impls.get_mut(&ty) {
             Some(impls) => impls.push(trait_impl),
@@ -271,17 +269,13 @@ impl Context {
             impls: trait_impl,
         };
 
-        self.stack
-            .front_mut()
-            .ok_or(StackUnderflow)?
-            .generic_impls
-            .push(generic_impl);
+        self.generic_impls.push(generic_impl);
 
         Ok(())
     }
 
     fn get_concrete_impl_for(&self, ty: &Type) -> Result<Vec<&TraitImpl>, RuntimeError> {
-        match self.stack.front().ok_or(StackUnderflow)?.impls.get(ty) {
+        match self.impls.get(ty) {
             Some(impls) => Ok(impls.iter().collect()),
             _ => Ok(vec![]),
         }
@@ -289,9 +283,6 @@ impl Context {
 
     fn get_generic_impl_for(&self, ty: &Type) -> Result<Vec<&TraitImpl>, RuntimeError> {
         let impls = self
-            .stack
-            .front()
-            .ok_or(StackUnderflow)?
             .generic_impls
             .iter()
             .filter_map(|gi| match self.satisfy_generic(&gi.generic, ty) {
@@ -324,7 +315,8 @@ impl Context {
                 .is_some()
         }
 
-        let impls = match self.get_all_impl_for(&ty)? {
+        // TODO: should we use get_all_impl_for() ?
+        let impls = match self.get_concrete_impl_for(&ty)? {
             impls if impls.is_empty() => return Ok(false),
             impls => impls,
         };
@@ -352,26 +344,14 @@ impl Context {
     }
 
     fn resolve_trait(&self, name: String) -> Result<TraitType, RuntimeError> {
-        match self
-            .stack
-            .front()
-            .ok_or(StackUnderflow)?
-            .traits
-            .get(name.as_str())
-        {
+        match self.traits.get(name.as_str()) {
             Some(tr) => Ok(tr.clone()),
             _ => Err(TraitNotFound(name)),
         }
     }
 
     fn resolve_enum(&self, name: String) -> Result<EnumType, RuntimeError> {
-        match self
-            .stack
-            .front()
-            .ok_or(StackUnderflow)?
-            .enums
-            .get(name.as_str())
-        {
+        match self.enums.get(name.as_str()) {
             Some(e) => Ok(e.clone()),
             _ => Err(TypeNotFound(name)),
         }
@@ -415,10 +395,6 @@ impl Scope {
     fn new() -> Scope {
         Scope {
             vars: Default::default(),
-            enums: Default::default(),
-            traits: Default::default(),
-            impls: Default::default(),
-            generic_impls: Default::default(),
         }
     }
 }

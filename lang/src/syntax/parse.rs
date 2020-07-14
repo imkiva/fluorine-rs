@@ -447,8 +447,8 @@ fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
         AtomExpr(AtomRawLambda(names, body)) => dbi_lambda_body(param_stack, names, body),
 
         ApplyExpr(f, a) => ApplyExpr(
-            Box::new(dbi_lambda(param_stack, *f.clone())),
-            Box::new(dbi_lambda(&mut VecDeque::new(), *a.clone())),
+            Box::new(dbi_lambda(param_stack, *f)),
+            Box::new(dbi_lambda(&mut VecDeque::new(), *a)),
         ),
 
         // not a lambda, just return what we have now
@@ -482,13 +482,13 @@ fn dbi_lambda_body(
 }
 
 fn dbi_expr(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
-    match &expr {
+    match expr {
         // resolve variable name to dbi
         AtomExpr(AtomId(id)) => {
             if let Some(index) = resolve_param(param_stack, id.as_str()) {
                 DBI(index)
             } else {
-                expr
+                AtomExpr(AtomId(id))
             }
         }
 
@@ -516,6 +516,8 @@ fn dbi_expr(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
                 })
                 .collect(),
         ),
+
+        MemberExpr(lhs, id) => MemberExpr(Box::new(dbi_expr(param_stack, *lhs)), id),
 
         // try match nested lambda
         _ => dbi_lambda(param_stack, expr),

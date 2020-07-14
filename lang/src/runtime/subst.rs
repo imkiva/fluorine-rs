@@ -1,7 +1,7 @@
 use crate::syntax::tree::{
     Atom::AtomLambda,
     Expr,
-    Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, UnaryExpr, DBI},
+    Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
     MatchCase,
 };
 
@@ -43,6 +43,7 @@ impl Subst for Expr {
 
     fn subst(self: Self, dbi: usize, replacement: &Expr) -> Self::Output {
         match self {
+            Unit => Unit,
             DBI(i) if dbi == i => replacement.clone(),
             DBI(_) => self,
 
@@ -61,6 +62,8 @@ impl Subst for Expr {
                 ))
             }
 
+            AtomExpr(atom) => AtomExpr(atom),
+
             ApplyExpr(f, arg) => ApplyExpr(f.subst(dbi, replacement), arg.subst(dbi, replacement)),
 
             MatchExpr(matchee, cases) => MatchExpr(
@@ -68,7 +71,7 @@ impl Subst for Expr {
                 cases.subst(dbi, replacement),
             ),
 
-            _ => self,
+            MemberExpr(lhs, id) => MemberExpr(lhs.subst(dbi, replacement), id),
         }
     }
 }

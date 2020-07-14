@@ -177,12 +177,13 @@ impl REPL {
             }
 
             ":scope" => {
-                let scope = self.rl.helper().unwrap().context.stack.front().expect("?");
+                let ctx = &self.rl.helper().unwrap().context;
+                let scope = ctx.stack.front().expect("?");
                 println!("Enums: ");
-                scope.enums.iter().for_each(|(k, _)| println!("- {}", k));
+                ctx.enums.iter().for_each(|(k, _)| println!("- {}", k));
                 println!();
                 println!("Traits: ");
-                scope.traits.iter().for_each(|(k, _)| println!("- {}", k));
+                ctx.traits.iter().for_each(|(k, _)| println!("- {}", k));
                 println!();
                 println!("Vars:");
                 scope.vars.iter().for_each(|(k, _)| println!("- {}", k));

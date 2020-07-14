@@ -88,15 +88,15 @@ impl std::fmt::Display for RuntimeError {
 #[derive(Debug)]
 pub struct Context {
     pub stack: VecDeque<Scope>,
+    pub enums: HashMap<Ident, EnumType>,
+    pub traits: HashMap<Ident, TraitType>,
+    pub impls: HashMap<Type, Vec<TraitImpl>>,
+    pub generic_impls: Vec<GenericImpl>,
 }
 
 #[derive(Debug)]
 pub struct Scope {
     pub vars: HashMap<Ident, Value>,
-    pub enums: HashMap<Ident, EnumType>,
-    pub traits: HashMap<Ident, TraitType>,
-    pub impls: HashMap<Type, Vec<TraitImpl>>,
-    pub generic_impls: Vec<GenericImpl>,
 }
 
 #[derive(Clone, Debug)]
