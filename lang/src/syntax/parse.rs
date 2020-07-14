@@ -49,9 +49,14 @@ fn convert_dbi_decl(decl: Decl) -> Decl {
     match decl {
         LetDecl(name, expr) => LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr)),
 
-        ImplDecl(tr, ty, fns) => ImplDecl(tr, ty, fns.into_iter().map(convert_dbi_decl).collect()),
+        ImplDecl(generic, tr, ty, fns) => ImplDecl(
+            generic,
+            tr,
+            ty,
+            fns.into_iter().map(convert_dbi_decl).collect(),
+        ),
 
-        EnumDecl(name, variants) => EnumDecl(name, variants),
+        EnumDecl(generic, name, variants) => EnumDecl(generic, name, variants),
 
         TraitDecl(name, fns) => TraitDecl(name, fns),
     }
@@ -348,6 +353,34 @@ fn parse_decl(node: Pair<Rule>) -> Decl {
     }
 }
 
+fn peek_and_parse_generic(iter: &mut Pairs<Rule>) -> Vec<GenericParam> {
+    match iter.peek().map(|it| it.as_rule()) {
+        Some(Rule::generic_param) => parse_generic_param(iter.next().unwrap()),
+        _ => vec![],
+    }
+}
+
+fn parse_generic_param(node: Pair<Rule>) -> Vec<GenericParam> {
+    node.into_inner()
+        .into_iter()
+        .map(parse_constrained)
+        .map(|(param, constraints)| GenericParam {
+            name: param,
+            constraints,
+        })
+        .collect()
+}
+
+fn parse_constrained(node: Pair<Rule>) -> (Ident, Vec<Constraint>) {
+    let mut iter = node.into_inner().into_iter();
+    let param = iter.next().unwrap().as_str();
+    let constraints = iter
+        .map(|ty| ty.as_str().to_string())
+        .map(Constraint::MustImpl)
+        .collect();
+    (param.to_string(), constraints)
+}
+
 fn parse_let_decl(node: Pair<Rule>) -> Decl {
     let mut iter = node.into_inner().into_iter();
     let id = iter.next().unwrap().as_str();
@@ -357,9 +390,11 @@ fn parse_let_decl(node: Pair<Rule>) -> Decl {
 
 fn parse_enum_decl(node: Pair<Rule>) -> Decl {
     let mut iter = node.into_inner().into_iter();
-    let id = iter.next().unwrap().as_str();
+    let type_ = iter.next().unwrap().as_str();
+    let generic = peek_and_parse_generic(&mut iter);
     let variants = iter.map(parse_enum_variant).collect();
-    EnumDecl(id.to_owned(), variants)
+
+    EnumDecl(generic, type_.to_owned(), variants)
 }
 
 fn parse_enum_variant(node: Pair<Rule>) -> EnumVariant {
@@ -392,10 +427,11 @@ fn parse_trait_fn(node: Pair<Rule>) -> TraitFn {
 
 fn parse_impl_decl(node: Pair<Rule>) -> Decl {
     let mut iter = node.into_inner().into_iter();
+    let generic = peek_and_parse_generic(&mut iter);
     let tr = iter.next().unwrap().as_str();
     let ty = iter.next().unwrap().as_str();
     let fns = iter.map(parse_impl_fn).collect();
-    ImplDecl(tr.to_owned(), ty.to_owned(), fns)
+    ImplDecl(generic, tr.to_owned(), ty.to_owned(), fns)
 }
 
 fn parse_impl_fn(node: Pair<Rule>) -> Decl {

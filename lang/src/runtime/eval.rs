@@ -77,7 +77,7 @@ impl Eval for Decl {
                 ctx.put_var(name, value)?;
                 Ok(UnitValue)
             }
-            EnumDecl(name, variants) => {
+            EnumDecl(generic, name, variants) => {
                 let ty = EnumType {
                     name: name.clone(),
                     variants: variants.clone(),
@@ -105,7 +105,7 @@ impl Eval for Decl {
                 ctx.put_trait(name, fns)?;
                 Ok(UnitValue)
             }
-            ImplDecl(tr, ty, fns) => {
+            ImplDecl(generic, tr, ty, fns) => {
                 let fns = fns
                     .into_iter()
                     .map(|decl| match decl {

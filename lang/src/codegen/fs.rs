@@ -128,11 +128,11 @@ impl TargetFs for Decl {
     fn codegen_to_fs(self: Self) -> String {
         match self {
             LetDecl(name, expr) => format!("let {} = {}\n", name, expr.codegen_to_fs()),
-            EnumDecl(name, variants) => {
+            EnumDecl(_, name, variants) => {
                 format!("enum {} {{\n{}\n}}", name, variants.codegen_to_fs())
             }
             TraitDecl(name, fns) => format!("trait {} {{\n{}\n}}", name, fns.codegen_to_fs()),
-            ImplDecl(tr, ty, fns) => {
+            ImplDecl(_, tr, ty, fns) => {
                 format!("impl {} for {} {{\n{}\n}}", tr, ty, fns.codegen_to_fs())
             }
         }

@@ -105,7 +105,7 @@ decl = { let_decl
 
 let_decl = { "let" ~ id ~ "=" ~ expr ~ ";"? }
 
-enum_decl = { "enum" ~ type_ ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
+enum_decl = { "enum" ~ type_ ~ generic_param? ~ "{" ~ (enum_variant ~ ","?)+ ~ "}" }
 
 enum_variant = { enum_ctor ~ ("(" ~ (type_ ~ ","?)* ~ ")")? }
 
@@ -115,9 +115,13 @@ trait_decl = { "trait" ~ type_ ~ "{" ~ trait_fn* ~ "}" }
 
 trait_fn = { "let" ~ id ~ ":" ~ "(" ~ param ~ ")" ~ "->" ~ type_ ~ ";"? }
 
-impl_decl = { "impl" ~ type_ ~ "for" ~ type_ ~ "{" ~ impl_fn* ~ "}" }
+impl_decl = { "impl" ~ generic_param? ~ type_ ~ "for" ~ type_ ~ "{" ~ impl_fn* ~ "}" }
 
 impl_fn = { "let" ~ id ~ "=" ~ normal_lambda ~ ";"? }
+
+generic_param = { "<" ~ constrained ~ ("," ~ constrained)* ~ ","? ~ ">" }
+
+constrained = { type_ ~ (":" ~ type_ ~ ("+" ~ type_)*)?  ~ ","? }
 
 type_ = $ { (ASCII_ALPHA_UPPER | "$") ~ (ASCII_ALPHANUMERIC | UNDERLINE | "$")* }
 

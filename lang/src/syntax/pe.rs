@@ -57,9 +57,9 @@ impl PartialEval for Decl {
     fn partial_eval_with(self, ctx: Option<&dyn PEContext>) -> Self::Output {
         match self {
             LetDecl(name, expr) => LetDecl(name, expr.partial_eval_with(ctx)),
-            EnumDecl(name, variants) => EnumDecl(name, variants),
+            EnumDecl(generic, name, variants) => EnumDecl(generic, name, variants),
             TraitDecl(name, fns) => TraitDecl(name, fns),
-            ImplDecl(tr, ty, fns) => ImplDecl(tr, ty, fns.partial_eval_with(ctx)),
+            ImplDecl(generic, tr, ty, fns) => ImplDecl(generic, tr, ty, fns.partial_eval_with(ctx)),
         }
     }
 }
