@@ -6,10 +6,11 @@ use crate::{
         builtins::Builtins,
         pattern::Matcher,
         subst::Subst,
-        Context, EnumType, RuntimeError,
+        Context, EnumType, GenericImpl, RuntimeError,
         RuntimeError::{
             AmbiguousMember, ArgSelfTypeNotAllowed, ArgTypeMismatch, GenericNotSatisfied, NoMember,
-            NonExhaustive, NotApplicable, StackUnderflow, TypeNotFound, VariableNotFound,
+            NonExhaustive, NotApplicable, StackUnderflow, TraitNotFound, TypeNotFound,
+            VariableNotFound,
         },
         Scope, TraitImpl, TraitType, Type, Value,
         Value::{
@@ -121,9 +122,21 @@ impl Eval for Decl {
                         _ => unreachable!("not a trait fn"),
                     })
                     .collect();
-                // TODO: check if ty is a generic param
-                let ty = ctx.resolve_type(ty)?;
-                ctx.impl_trait(tr, ty, fns)?;
+
+                // check if ty is a generic param
+                match find_generic(&generic, ty.clone()) {
+                    Some(generic) => {
+                        // we should record generic impl, and copy fns
+                        // to each type that satisfies constraints.
+                        ctx.generic_impl_trait(tr, generic, fns)?;
+                    }
+                    _ => {
+                        // not a generic impl, we just declare it in the context.
+                        let ty = ctx.resolve_type(ty)?;
+                        ctx.impl_trait(tr, ty, fns)?;
+                    }
+                }
+
                 Ok(UnitValue)
             }
         }
@@ -242,11 +255,87 @@ impl Context {
         Ok(())
     }
 
-    fn get_impl_for(&self, ty: &Type) -> Result<Option<&Vec<TraitImpl>>, RuntimeError> {
+    pub fn generic_impl_trait(
+        &mut self,
+        tr: Ident,
+        generic: GenericParam,
+        fns: HashMap<Ident, Value>,
+    ) -> Result<(), RuntimeError> {
+        let trait_impl = TraitImpl {
+            tr: self.resolve_trait(tr)?,
+            impls: fns,
+        };
+
+        let generic_impl = GenericImpl {
+            generic,
+            impls: trait_impl,
+        };
+
+        self.stack
+            .front_mut()
+            .ok_or(StackUnderflow)?
+            .generic_impls
+            .push(generic_impl);
+
+        Ok(())
+    }
+
+    fn get_concrete_impl_for(&self, ty: &Type) -> Result<Vec<&TraitImpl>, RuntimeError> {
         match self.stack.front().ok_or(StackUnderflow)?.impls.get(ty) {
-            Some(impls) => Ok(Some(impls)),
-            _ => Ok(None),
+            Some(impls) => Ok(impls.iter().collect()),
+            _ => Ok(vec![]),
         }
+    }
+
+    fn get_generic_impl_for(&self, ty: &Type) -> Result<Vec<&TraitImpl>, RuntimeError> {
+        let impls = self
+            .stack
+            .front()
+            .ok_or(StackUnderflow)?
+            .generic_impls
+            .iter()
+            .filter_map(|gi| match self.satisfy_generic(&gi.generic, ty) {
+                Ok(true) => Some(&gi.impls),
+                _ => None,
+            })
+            .collect();
+
+        Ok(impls)
+    }
+
+    fn get_all_impl_for(&self, ty: &Type) -> Result<Vec<&TraitImpl>, RuntimeError> {
+        let concrete = self.get_concrete_impl_for(ty)?;
+        let generic = self.get_generic_impl_for(ty)?;
+        let mut result = Vec::with_capacity(concrete.len() + generic.len());
+        result.extend(concrete.into_iter());
+        result.extend(generic.into_iter());
+        Ok(result)
+    }
+
+    pub fn satisfy_generic(&self, generic: &GenericParam, ty: &Type) -> Result<bool, RuntimeError> {
+        fn satisfy_constraint(impls: &Vec<&TraitImpl>, constraint: &Constraint) -> bool {
+            let name = match constraint {
+                Constraint::MustImpl(id) => id,
+            };
+
+            impls
+                .iter()
+                .position(|i| i.tr.name.as_str() == name)
+                .is_some()
+        }
+
+        let impls = match self.get_all_impl_for(&ty)? {
+            impls if impls.is_empty() => return Ok(false),
+            impls => impls,
+        };
+
+        let result = generic
+            .constraints
+            .iter()
+            .map(|c| satisfy_constraint(&impls, c))
+            .all(|result| result);
+
+        Ok(result)
     }
 
     fn resolve_type(&self, name: String) -> Result<Type, RuntimeError> {
@@ -271,7 +360,7 @@ impl Context {
             .get(name.as_str())
         {
             Some(tr) => Ok(tr.clone()),
-            _ => Err(TypeNotFound(name)),
+            _ => Err(TraitNotFound(name)),
         }
     }
 
@@ -329,6 +418,7 @@ impl Scope {
             enums: Default::default(),
             traits: Default::default(),
             impls: Default::default(),
+            generic_impls: Default::default(),
         }
     }
 }
@@ -400,32 +490,11 @@ fn check_generic(
 
     // TODO: type inference instead of eval
     let got = arg.clone().eval_into(ctx)?.get_type();
-    let impls = match ctx.get_impl_for(&got)? {
-        Some(impls) => impls,
-        _ => return Err(GenericNotSatisfied(index, generic, got)),
-    };
 
-    let result = generic
-        .constraints
-        .iter()
-        .map(|c| satisfy_constraint(impls, c))
-        .all(|result| result);
-
-    match result {
+    match ctx.satisfy_generic(&generic, &got)? {
         true => Ok(()),
         _ => Err(GenericNotSatisfied(index, generic, got)),
     }
-}
-
-fn satisfy_constraint(impls: &Vec<TraitImpl>, constraint: &Constraint) -> bool {
-    let name = match constraint {
-        Constraint::MustImpl(id) => id,
-    };
-
-    impls
-        .iter()
-        .position(|i| i.tr.name.as_str() == name)
-        .is_some()
 }
 
 fn eval_apply(ctx: &mut Context, f: Expr, arg: Expr) -> Result<Value, RuntimeError> {
@@ -537,9 +606,7 @@ fn eval_member(ctx: &mut Context, lhs: Expr, id: Ident) -> Result<Value, Runtime
         return Err(NoMember(id, ty));
     }
 
-    let impls = ctx
-        .get_impl_for(&ty)?
-        .ok_or(NoMember(id.clone(), ty.clone()))?;
+    let impls = ctx.get_all_impl_for(&ty)?;
     let found = impls
         .iter()
         .filter_map(|it| it.impls.get(id.as_str()))

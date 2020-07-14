@@ -26,6 +26,7 @@ pub enum RuntimeError {
     StackUnderflow,
     VariableNotFound(String),
     TypeNotFound(String),
+    TraitNotFound(String),
     ArgSelfTypeNotAllowed(DBI),
     ArgTypeMismatch(DBI, Type, Type),
     GenericNotSatisfied(DBI, GenericParam, Type),
@@ -44,6 +45,7 @@ impl std::fmt::Display for RuntimeError {
                 write!(f, "NameError: variable '{}' not found", id)
             }
             RuntimeError::TypeNotFound(ty) => write!(f, "NameError: type '{}' not found", ty),
+            RuntimeError::TraitNotFound(ty) => write!(f, "NameError: trait '{}' not found", ty),
             RuntimeError::ArgSelfTypeNotAllowed(index) => write!(
                 f,
                 "TypeError: argument {}: use of 'Self' type is not allowed",
@@ -94,6 +96,7 @@ pub struct Scope {
     pub enums: HashMap<Ident, EnumType>,
     pub traits: HashMap<Ident, TraitType>,
     pub impls: HashMap<Type, Vec<TraitImpl>>,
+    pub generic_impls: Vec<GenericImpl>,
 }
 
 #[derive(Clone, Debug)]
@@ -135,6 +138,12 @@ pub struct TraitType {
 pub struct TraitImpl {
     pub tr: TraitType,
     pub impls: HashMap<String, Value>,
+}
+
+#[derive(Clone, Debug)]
+pub struct GenericImpl {
+    pub generic: GenericParam,
+    pub impls: TraitImpl,
 }
 
 impl std::hash::Hash for EnumType {
