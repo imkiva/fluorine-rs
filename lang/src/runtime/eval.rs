@@ -412,10 +412,9 @@ fn check_generic(
         .map(|c| satisfy_constraint(impls, c))
         .all(|result| result);
 
-    if result {
-        Ok(())
-    } else {
-        Err(GenericNotSatisfied(index, generic, got))
+    match result {
+        true => Ok(()),
+        _ => Err(GenericNotSatisfied(index, generic, got)),
     }
 }
 
