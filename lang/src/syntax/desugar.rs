@@ -37,9 +37,9 @@ impl Desugarable for Decl {
     fn desugar(self) -> Self {
         match self {
             Decl::LetDecl(name, val) => Decl::LetDecl(name, val.desugar()),
-            Decl::EnumDecl(name, variants) => Decl::EnumDecl(name, variants),
+            Decl::EnumDecl(generic, name, variants) => Decl::EnumDecl(generic, name, variants),
             Decl::TraitDecl(name, fns) => Decl::TraitDecl(name, fns),
-            Decl::ImplDecl(tr, ty, fns) => Decl::ImplDecl(tr, ty, fns.desugar()),
+            Decl::ImplDecl(generic, tr, ty, fns) => Decl::ImplDecl(generic, tr, ty, fns.desugar()),
         }
     }
 }

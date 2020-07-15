@@ -6,8 +6,8 @@ use crate::{
         UnitValue,
     },
     syntax::tree::{
-        ApplyStartDBI, Argc, Atom::AtomLambda, EnumVariant, Expr, Expr::AtomExpr, Ident, Param,
-        PatEnumVariant, TraitFn, DBI,
+        ApplyStartDBI, Argc, Atom::AtomLambda, Constraint, EnumVariant, Expr, Expr::AtomExpr,
+        GenericParam, Ident, Param, PatEnumVariant, TraitFn, DBI,
     },
 };
 use std::{
@@ -26,8 +26,10 @@ pub enum RuntimeError {
     StackUnderflow,
     VariableNotFound(String),
     TypeNotFound(String),
+    TraitNotFound(String),
     ArgSelfTypeNotAllowed(DBI),
     ArgTypeMismatch(DBI, Type, Type),
+    GenericNotSatisfied(DBI, GenericParam, Type),
     NotApplicable,
     NoMember(String, Type),
     AmbiguousMember(String),
@@ -43,6 +45,7 @@ impl std::fmt::Display for RuntimeError {
                 write!(f, "NameError: variable '{}' not found", id)
             }
             RuntimeError::TypeNotFound(ty) => write!(f, "NameError: type '{}' not found", ty),
+            RuntimeError::TraitNotFound(ty) => write!(f, "NameError: trait '{}' not found", ty),
             RuntimeError::ArgSelfTypeNotAllowed(index) => write!(
                 f,
                 "TypeError: argument {}: use of 'Self' type is not allowed",
@@ -52,6 +55,20 @@ impl std::fmt::Display for RuntimeError {
                 f,
                 "TypeError: argument {}: expected type '{}', but got '{}'",
                 index, expected, got
+            ),
+            RuntimeError::GenericNotSatisfied(index, generic, got) => write!(
+                f,
+                "TypeError: argument {}: type '{}' does not satisfy generic constraints '{}'",
+                index,
+                got,
+                generic
+                    .constraints
+                    .iter()
+                    .map(|c| match c {
+                        Constraint::MustImpl(tr) => tr.clone(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" + ")
             ),
             RuntimeError::NoMember(member, ty) => write!(
                 f,
@@ -71,14 +88,15 @@ impl std::fmt::Display for RuntimeError {
 #[derive(Debug)]
 pub struct Context {
     pub stack: VecDeque<Scope>,
+    pub enums: HashMap<Ident, EnumType>,
+    pub traits: HashMap<Ident, TraitType>,
+    pub impls: HashMap<Type, Vec<TraitImpl>>,
+    pub generic_impls: Vec<GenericImpl>,
 }
 
 #[derive(Debug)]
 pub struct Scope {
     pub vars: HashMap<Ident, Value>,
-    pub enums: HashMap<Ident, Vec<EnumVariant>>,
-    pub traits: HashMap<Ident, Vec<TraitFn>>,
-    pub impls: HashMap<Type, Vec<TraitImpl>>,
 }
 
 #[derive(Clone, Debug)]
@@ -101,12 +119,12 @@ pub enum Type {
     StringType,
     LambdaType(Argc),
     EnumType(EnumType),
-    TraitType(TraitType),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EnumType {
     pub name: String,
+    pub generic: Vec<GenericParam>,
     pub variants: Vec<EnumVariant>,
 }
 
@@ -120,6 +138,12 @@ pub struct TraitType {
 pub struct TraitImpl {
     pub tr: TraitType,
     pub impls: HashMap<String, Value>,
+}
+
+#[derive(Clone, Debug)]
+pub struct GenericImpl {
+    pub generic: GenericParam,
+    pub impls: TraitImpl,
 }
 
 impl std::hash::Hash for EnumType {
@@ -222,7 +246,6 @@ impl std::fmt::Display for Type {
             Type::StringType => write!(f, "String"),
             Type::LambdaType(_) => write!(f, "<lambda-type>"),
             Type::EnumType(ty) => write!(f, "{}", ty.name),
-            Type::TraitType(tr) => write!(f, "{}", tr.name),
         }
     }
 }

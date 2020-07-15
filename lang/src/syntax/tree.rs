@@ -64,9 +64,20 @@ pub struct PatEnumVariant {
 #[derive(Debug)]
 pub enum Decl {
     LetDecl(Ident, Expr),
-    EnumDecl(Ident, Vec<EnumVariant>),
+    EnumDecl(Vec<GenericParam>, Ident, Vec<EnumVariant>),
     TraitDecl(Ident, Vec<TraitFn>),
-    ImplDecl(Ident, Ident, Vec<Decl>),
+    ImplDecl(Vec<GenericParam>, Ident, Ident, Vec<Decl>),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GenericParam {
+    pub name: Ident,
+    pub constraints: Vec<Constraint>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Constraint {
+    MustImpl(Ident),
 }
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Clone)]
