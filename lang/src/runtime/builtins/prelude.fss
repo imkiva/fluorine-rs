@@ -17,6 +17,11 @@ enum Result<T, E> {
     Err(E),
 }
 
+enum Poll<T> {
+    Ready(T),
+    Pending,
+}
+
 trait Add {
     let add: (self, rhs: Self) -> Self;
 }
@@ -47,4 +52,12 @@ trait Not {
 
 trait Cmp {
     let cmp: (self, rhs: Self) -> Ordering;
+}
+
+trait Waker {
+    let wake: (self, unit: Unit) -> Unit;
+}
+
+trait Future {
+    let poll: (self, unit: Unit) -> Poll;
 }

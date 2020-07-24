@@ -5,10 +5,7 @@ use crate::syntax::{
         Decl,
         Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
         Expr,
-        Expr::{
-            ApplyExpr, AtomExpr, AwaitExpr, BinaryExpr, MatchExpr, MemberExpr,
-            UnaryExpr, DBI,
-        },
+        Expr::{ApplyExpr, AtomExpr, AwaitExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, DBI},
         MatchCase, ParseRawLambda, Program, ProgramItem,
         ProgramItem::{DeclItem, ExprItem},
     },

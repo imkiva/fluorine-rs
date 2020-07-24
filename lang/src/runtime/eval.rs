@@ -336,6 +336,7 @@ impl Context {
 
     fn resolve_type(&self, name: String) -> Result<Type, RuntimeError> {
         match name.as_str() {
+            "Any" => Ok(Type::AnyType),
             "Unit" => Ok(Type::UnitType),
             "Number" => Ok(Type::NumberType),
             "Bool" => Ok(Type::BoolType),
@@ -450,10 +451,10 @@ fn check_concrete(
 ) -> Result<(), RuntimeError> {
     // TODO: type inference instead of eval
     let got = arg.clone().eval_into(ctx)?.get_type();
-    if expected != got {
-        Err(ArgTypeMismatch(index, expected, got))
-    } else {
-        Ok(())
+    match expected {
+        Type::AnyType => Ok(()),
+        expected if expected == got => Ok(()),
+        expected => Err(ArgTypeMismatch(index, expected, got))
     }
 }
 
