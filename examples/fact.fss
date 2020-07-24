@@ -1,4 +1,0 @@
-let fact = { n -> match n { 1 => 1, _ => n * fact(n - 1) } }
-
-println(fact(100))
-
