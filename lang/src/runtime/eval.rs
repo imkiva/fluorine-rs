@@ -454,7 +454,7 @@ fn check_concrete(
     match expected {
         Type::AnyType => Ok(()),
         expected if expected == got => Ok(()),
-        expected => Err(ArgTypeMismatch(index, expected, got))
+        expected => Err(ArgTypeMismatch(index, expected, got)),
     }
 }
 

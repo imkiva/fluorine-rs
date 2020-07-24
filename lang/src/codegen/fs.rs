@@ -45,7 +45,7 @@ impl PartialCodeGenerator for FsCodeGenerator {
     }
 }
 
-trait TargetFs {
+pub trait TargetFs {
     fn codegen_to_fs(self: Self) -> String;
 }
 

@@ -9,11 +9,14 @@ use rustyline::{
 
 use lang::{
     runtime::Context,
-    syntax::{parse::CompileError, tree::Program},
+    syntax::{
+        parse::CompileError,
+        tree::{Expr, Program},
+    },
 };
 
 use crate::config::Config;
-use lang::{runtime::Value, Compiler};
+use lang::{codegen::fs::TargetFs, runtime::Value, syntax::tree::Atom, Compiler};
 
 struct REPL {
     rl: Editor<REPLHelper>,
@@ -188,6 +191,33 @@ impl REPL {
                 println!("Vars:");
                 scope.vars.iter().for_each(|(k, _)| println!("- {}", k));
                 println!();
+            }
+
+            ":impls" => {
+                let ctx = &self.rl.helper().unwrap().context;
+                ctx.impls.iter().for_each(|(t, impls)| {
+                    impls.iter().for_each(|ti| {
+                        println!("impl {} for {} {{", ti.tr.name, t);
+                        ti.impls
+                            .iter()
+                            .map(|(name, f)| {
+                                let expr = match f {
+                                    Value::LambdaValue(p, dbi, body) => Expr::AtomExpr(
+                                        Atom::AtomLambda(p.clone(), *dbi, body.clone()),
+                                    )
+                                    .codegen_to_fs(),
+                                    Value::ForeignLambda(_, _) => "<compiler-builtin>".to_string(),
+                                    _ => unreachable!("not an impl fn value"),
+                                };
+                                (name, expr)
+                            })
+                            .for_each(|(name, f)| {
+                                println!("    let {} = {}", name, f);
+                            });
+                        println!("}}");
+                        println!();
+                    })
+                });
             }
 
             _ => println!("REPL: Unknown command {}", line.as_str()),

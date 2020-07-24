@@ -17,9 +17,9 @@ enum Result<T, E> {
     Err(E),
 }
 
-enum Poll<T> {
+enum Poll<T, S> {
     Ready(T),
-    Pending,
+    Pending(S),
 }
 
 trait Add {

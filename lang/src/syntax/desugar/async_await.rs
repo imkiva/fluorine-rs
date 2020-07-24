@@ -1,6 +1,9 @@
-use crate::syntax::tree::{
-    Atom, Decl, EnumVariant, Expr, Ident, MatchCase, Param, ParseType, PatEnumVariant, Pattern,
-    Program, ProgramItem,
+use crate::{
+    runtime::subst::Subst,
+    syntax::tree::{
+        Atom, Decl, EnumVariant, Expr, Ident, MatchCase, Param, ParseType, PatEnumVariant, Pattern,
+        Program, ProgramItem,
+    },
 };
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -32,9 +35,7 @@ pub fn desugar_async_lambda(params: Vec<Param>, body: Vec<Expr>, extra: &mut Pro
         vec![Decl::LetDecl(Ident::from("poll"), pool_body)],
     )));
 
-    let start_state_name = Expr::AtomExpr(Atom::AtomId(
-        format!("AsyncStateMachine{}State0", id)
-    ));
+    let start_state_name = Expr::AtomExpr(Atom::AtomId(format!("AsyncStateMachine{}State0", id)));
     let create_start_state = (0..params.len())
         .into_iter()
         .map(|dbi| Expr::DBI(dbi))
@@ -60,7 +61,7 @@ fn build_poll_lambda(id: usize, states: Vec<Vec<Expr>>, params: &Vec<Param>) -> 
         states[0][0].clone(),
     ));
 
-    for i in 1..states.len() {
+    for i in 1..=states.len() {
         let mut params = fields.clone();
         params.push(Ident::from("result"));
         cases.push(MatchCase(
@@ -69,19 +70,17 @@ fn build_poll_lambda(id: usize, states: Vec<Vec<Expr>>, params: &Vec<Param>) -> 
                 fields: params,
             }),
             // TODO: support expr_list on match case
-            states[i][0].clone(),
+            match states.get(i).map(|it| it.first()) {
+                // is intermediate state
+                Some(Some(e)) => e.clone(),
+                // is end state
+                _ => Expr::ApplyExpr(
+                    Box::new(Expr::AtomExpr(Atom::AtomId(Ident::from("Ready")))),
+                    Box::new(Expr::AtomExpr(Atom::AtomId(Ident::from("result"))))
+                ),
+            },
         ));
     }
-
-    // case end state
-    cases.push(MatchCase(
-        Pattern::PatVariant(PatEnumVariant {
-            name: format!("AsyncStateMachine{}State{}", id, states.len() + 2),
-            fields: vec![],
-        }),
-        // TODO: support expr_list on match case
-        states[0][0].clone(),
-    ));
 
     // pool: (self, unit: Unit) -> Poll;
     let poll_body = Expr::MatchExpr(Box::new(Expr::DBI(0)), cases);
@@ -145,12 +144,6 @@ fn generate_state_variants(id: usize, states: usize, params: &Vec<Param>) -> Vec
         });
     }
 
-    // end state
-    variants.push(EnumVariant {
-        name: format!("AsyncStateMachine{}State{}", id, states + 1),
-        field_types: vec![],
-    });
-
     variants
 }
 
@@ -161,20 +154,30 @@ fn split_states(id: usize, body: Vec<Expr>, params: &Vec<Param>) -> Vec<Vec<Expr
     for expr in body {
         match expr {
             Expr::AwaitExpr(e) => {
-                let next_state = states.len() - 1;
+                let expr = subst_params(*e, params);
+                let next_state = states.len();
                 states
                     .last_mut()
                     .unwrap()
-                    .push(desugar_await(id, next_state, params, *e));
+                    .push(desugar_await(id, next_state, params, expr));
                 states.push(Vec::new());
             }
-            _ => states.last_mut().unwrap().push(expr),
+            _ => {
+                let expr = subst_params(expr, params);
+                states.last_mut().unwrap().push(expr);
+            }
         }
     }
 
     states.into_iter()
-        .filter(|exprs| !exprs.is_empty())
+        .filter(|e| !e.is_empty())
         .collect()
+}
+
+fn subst_params(e: Expr, params: &Vec<Param>) -> Expr {
+    (0..params.len()).into_iter().fold(e, |expr, dbi| {
+        expr.subst(dbi, &Expr::AtomExpr(Atom::AtomId(params[dbi].id.clone())))
+    })
 }
 
 fn desugar_await(id: usize, next_state: usize, params: &Vec<Param>, e: Expr) -> Expr {
@@ -194,7 +197,7 @@ fn desugar_await(id: usize, next_state: usize, params: &Vec<Param>, e: Expr) -> 
 
     // match e.poll(()) {
     //     Ready(e) => NextState(...),
-    //     Pending  => self,
+    //     Pending(_)  => Pending(self),
     // }
     Expr::MatchExpr(
         Box::new(poll),
@@ -204,14 +207,23 @@ fn desugar_await(id: usize, next_state: usize, params: &Vec<Param>, e: Expr) -> 
                     name: Ident::from("Ready"),
                     fields: vec![Ident::from("result")],
                 }),
-                create_next_state,
+                Expr::ApplyExpr(
+                    Box::new(Expr::MemberExpr(
+                        Box::new(create_next_state),
+                        Ident::from("poll"),
+                    )),
+                    Box::new(Expr::Unit),
+                ),
             ),
             MatchCase(
                 Pattern::PatVariant(PatEnumVariant {
                     name: Ident::from("Pending"),
-                    fields: vec![],
+                    fields: vec![Ident::from("last")],
                 }),
-                Expr::AtomExpr(Atom::AtomId(Ident::from("self"))),
+                Expr::ApplyExpr(
+                    Box::new(Expr::AtomExpr(Atom::AtomId(Ident::from("Pending")))),
+                    Box::new(Expr::DBI(0)),
+                ),
             ),
         ],
     )
