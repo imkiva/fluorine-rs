@@ -30,35 +30,7 @@ impl FsParser {
     pub fn ast(input: &str) -> Result<Program, CompileError> {
         let fs = FsParser::parse(Rule::unit, input);
         let pairs = fs.map_err(|e| CompileError(e))?;
-        Ok(convert_dbi(parse_unit(pairs)))
-    }
-}
-
-fn convert_dbi(input: Program) -> Program {
-    input
-        .into_iter()
-        .map(|item| match item {
-            ExprItem(expr) => ExprItem(dbi_lambda(&mut VecDeque::new(), expr)),
-
-            DeclItem(decl) => DeclItem(convert_dbi_decl(decl)),
-        })
-        .collect()
-}
-
-fn convert_dbi_decl(decl: Decl) -> Decl {
-    match decl {
-        LetDecl(name, expr) => LetDecl(name, dbi_lambda(&mut VecDeque::new(), expr)),
-
-        ImplDecl(generic, tr, ty, fns) => ImplDecl(
-            generic,
-            tr,
-            ty,
-            fns.into_iter().map(convert_dbi_decl).collect(),
-        ),
-
-        EnumDecl(generic, name, variants) => EnumDecl(generic, name, variants),
-
-        TraitDecl(name, fns) => TraitDecl(name, fns),
+        Ok(parse_unit(pairs))
     }
 }
 
@@ -149,8 +121,11 @@ fn build_apply_or_member(lhs: Expr, postfix: Pair<Rule>) -> Expr {
             .fold(lhs, |lhs, arg| ApplyExpr(Box::new(lhs), Box::new(arg))),
 
         Rule::postfix_member => {
-            let id = postfix.into_inner().next().unwrap().as_str().to_owned();
-            MemberExpr(Box::new(lhs), id)
+            let id = postfix.into_inner().next().unwrap().as_str();
+            match id {
+                "await" => AwaitExpr(Box::new(lhs)),
+                _ => MemberExpr(Box::new(lhs), id.to_string()),
+            }
         }
 
         _ => unreachable!("not a postfix"),
@@ -186,9 +161,20 @@ fn parse_lambda(node: Pair<Rule>) -> Expr {
 
 fn parse_normal_lambda(node: Pair<Rule>) -> Expr {
     let mut nodes = node.into_inner().into_iter();
+    let is_async = match nodes.peek().map(|p| p.as_rule()) {
+        Some(Rule::async_token) => {
+            let _ = nodes.next().unwrap();
+            true
+        }
+        _ => false,
+    };
     let params = parse_param(nodes.next().unwrap());
     let body = parse_expr_list(nodes.next().unwrap());
-    AtomExpr(AtomRawLambda(params, body))
+    AtomExpr(AtomRawLambda(ParseRawLambda {
+        is_async,
+        params,
+        body,
+    }))
 }
 
 fn parse_param(param: Pair<Rule>) -> Vec<Param> {
@@ -439,99 +425,4 @@ fn parse_impl_fn(node: Pair<Rule>) -> Decl {
     let id = iter.next().unwrap().as_str();
     let lambda = parse_normal_lambda(iter.next().unwrap());
     LetDecl(id.to_owned(), lambda)
-}
-
-fn dbi_lambda(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
-    match expr {
-        // if this is a unsolved lambda
-        AtomExpr(AtomRawLambda(names, body)) => dbi_lambda_body(param_stack, names, body),
-
-        ApplyExpr(f, a) => ApplyExpr(
-            Box::new(dbi_lambda(param_stack, *f)),
-            Box::new(dbi_lambda(&mut VecDeque::new(), *a)),
-        ),
-
-        // not a lambda, just return what we have now
-        _ => expr,
-    }
-}
-
-fn dbi_lambda_body(
-    param_stack: &mut VecDeque<&Vec<Param>>,
-    names: Vec<Param>,
-    body: Vec<Expr>,
-) -> Expr {
-    // I know what I am doing!
-    unsafe {
-        // This is totally SAFE!!!!
-        let ptr: *const Vec<Param> = &names;
-        param_stack.push_front(&*ptr);
-    }
-
-    // recursively convert variable name to dbi
-    let r = AtomExpr(AtomLambda(
-        names.clone(),
-        0,
-        body.iter()
-            .map(|raw| dbi_expr(param_stack, raw.clone()))
-            .collect(),
-    ));
-
-    let _ = param_stack.pop_front();
-    r
-}
-
-fn dbi_expr(param_stack: &mut VecDeque<&Vec<Param>>, expr: Expr) -> Expr {
-    match expr {
-        // resolve variable name to dbi
-        AtomExpr(AtomId(id)) => {
-            if let Some(index) = resolve_param(param_stack, id.as_str()) {
-                DBI(index)
-            } else {
-                AtomExpr(AtomId(id))
-            }
-        }
-
-        UnaryExpr(op, unary) => {
-            UnaryExpr(op.clone(), Box::new(dbi_expr(param_stack, *unary.clone())))
-        }
-
-        BinaryExpr(op, lhs, rhs) => BinaryExpr(
-            op.clone(),
-            Box::new(dbi_expr(param_stack, *lhs.clone())),
-            Box::new(dbi_expr(param_stack, *rhs.clone())),
-        ),
-
-        ApplyExpr(f, a) => ApplyExpr(
-            Box::new(dbi_expr(param_stack, *f.clone())),
-            Box::new(dbi_expr(param_stack, *a.clone())),
-        ),
-
-        MatchExpr(matchee, cases) => MatchExpr(
-            Box::new(dbi_expr(param_stack, *matchee.clone())),
-            cases
-                .into_iter()
-                .map(|MatchCase(pat, expr)| {
-                    MatchCase(pat.clone(), dbi_expr(param_stack, expr.clone()))
-                })
-                .collect(),
-        ),
-
-        MemberExpr(lhs, id) => MemberExpr(Box::new(dbi_expr(param_stack, *lhs)), id),
-
-        // try match nested lambda
-        _ => dbi_lambda(param_stack, expr),
-    }
-}
-
-fn resolve_param(param_stack: &VecDeque<&Vec<Param>>, name: &str) -> Option<usize> {
-    let mut base_dbi = 0;
-
-    for &scope in param_stack {
-        if let Some(index) = scope.into_iter().position(|r| r.id.as_str() == name) {
-            return Some(base_dbi + index);
-        }
-        base_dbi += scope.len();
-    }
-    None
 }

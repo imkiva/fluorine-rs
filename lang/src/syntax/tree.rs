@@ -30,7 +30,14 @@ pub enum Atom {
     AtomLit(Lit),
     AtomId(Ident),
     AtomLambda(Vec<Param>, ApplyStartDBI, Vec<Expr>),
-    AtomRawLambda(Vec<Param>, Vec<Expr>),
+    AtomRawLambda(ParseRawLambda),
+}
+
+#[derive(Debug, Clone)]
+pub struct ParseRawLambda {
+    pub is_async: bool,
+    pub params: Vec<Param>,
+    pub body: Vec<Expr>,
 }
 
 #[derive(Debug, Clone)]
@@ -42,6 +49,7 @@ pub enum Expr {
     BinaryExpr(String, Box<Expr>, Box<Expr>),
     ApplyExpr(Box<Expr>, Box<Expr>),
     MemberExpr(Box<Expr>, Ident),
+    AwaitExpr(Box<Expr>),
     MatchExpr(Box<Expr>, Vec<MatchCase>),
 }
 

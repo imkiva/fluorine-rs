@@ -224,4 +224,9 @@ mod prelude_ffi {
             v => println!("{}", v),
         }
     }
+
+    #[fluorine]
+    fn debug(v: Value) {
+        println!("{:#?}", v);
+    }
 }

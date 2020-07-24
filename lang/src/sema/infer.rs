@@ -1,8 +1,7 @@
-use crate::sema::Context;
-use crate::sema::Infer;
-use crate::sema::Result;
-use crate::sema::Type;
-use crate::syntax::tree::Expr;
+use crate::{
+    sema::{Context, Infer, Result, Type},
+    syntax::tree::Expr,
+};
 
 impl Infer for Expr {
     fn infer_type(&self, _ctx: &Context) -> Result<Type> {

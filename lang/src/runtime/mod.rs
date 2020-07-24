@@ -34,6 +34,7 @@ pub enum RuntimeError {
     NoMember(String, Type),
     AmbiguousMember(String),
     NonExhaustive,
+    AwaitOutsideAsync,
     FFIError(FFIError),
 }
 
@@ -80,6 +81,9 @@ impl std::fmt::Display for RuntimeError {
             }
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
+            RuntimeError::AwaitOutsideAsync => {
+                write!(f, "CompileError: await should be inside async lambdas")
+            }
             RuntimeError::FFIError(err) => write!(f, "FFIError: {}", err),
         }
     }

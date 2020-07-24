@@ -1,5 +1,4 @@
-pub use crate::runtime::Context;
-pub use crate::runtime::Type;
+pub use crate::runtime::{Context, Type};
 
 pub enum SemaError {}
 

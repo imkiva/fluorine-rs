@@ -7,7 +7,9 @@ use crate::{
         Constraint, Decl,
         Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
         EnumVariant, Expr,
-        Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
+        Expr::{
+            ApplyExpr, AtomExpr, AwaitExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI,
+        },
         GenericParam, Lit,
         Lit::{LitBool, LitNumber, LitString},
         MatchCase, Param, ParseType, Pattern, TraitFn,
@@ -98,7 +100,7 @@ impl TargetFs for Atom {
             AtomLit(lit) => lit.codegen_to_fs(),
             AtomId(id) => id,
             AtomLambda(param, dbi, body) => codegen_lambda(param, dbi, body),
-            AtomRawLambda(param, body) => codegen_raw_lambda(param, body),
+            AtomRawLambda(raw) => codegen_raw_lambda(raw.is_async, raw.params, raw.body),
         }
     }
 }
@@ -119,6 +121,7 @@ impl TargetFs for Expr {
                 cases.codegen_to_fs()
             ),
             MemberExpr(lhs, id) => format!("{}.{}", lhs.codegen_to_fs(), id.as_str()),
+            AwaitExpr(expr) => format!("{}.await", expr.codegen_to_fs()),
             DBI(_) => unreachable!("dangling DBI outside lambda"),
         }
     }
@@ -236,12 +239,13 @@ fn codegen_lambda(param: Vec<Param>, dbi: usize, body: Vec<Expr>) -> String {
                 .collect()
         });
 
-    codegen_raw_lambda(param.into_iter().collect(), body)
+    codegen_raw_lambda(false, param.into_iter().collect(), body)
 }
 
-fn codegen_raw_lambda(param: Vec<Param>, body: Vec<Expr>) -> String {
+fn codegen_raw_lambda(is_async: bool, param: Vec<Param>, body: Vec<Expr>) -> String {
     format!(
-        "{{ {} -> {} }}",
+        "{}{{ {} -> {} }}",
+        if is_async { "async " } else { "" },
         param
             .into_iter()
             .map(|param| format!(
