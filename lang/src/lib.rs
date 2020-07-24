@@ -15,6 +15,7 @@ extern crate lang_ffi_macro;
 pub mod ffi;
 pub mod codegen;
 pub mod runtime;
+pub mod sema;
 pub mod syntax;
 
 pub struct Compiler;
