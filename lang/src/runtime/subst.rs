@@ -1,7 +1,9 @@
 use crate::syntax::tree::{
-    Atom::AtomLambda,
+    Atom::{AtomLambda, AtomRawLambda},
     Expr,
-    Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
+    Expr::{
+        ApplyExpr, AtomExpr, AwaitExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI,
+    },
     MatchCase,
 };
 
@@ -43,15 +45,16 @@ impl Subst for Expr {
 
     fn subst(self: Self, dbi: usize, replacement: &Expr) -> Self::Output {
         match self {
+            UnaryExpr(_, _) => unreachable!("Desugar bug: unary expr"),
+            BinaryExpr(_, _, _) => unreachable!("Desugar bug: binary expr"),
+            AtomExpr(AtomRawLambda(_)) => unreachable!("Desugar bug: raw lambda"),
+
+            // let eval.rs to handle await outside async.
+            AwaitExpr(expr) => AwaitExpr(expr),
+
             Unit => Unit,
             DBI(i) if dbi == i => replacement.clone(),
             DBI(_) => self,
-
-            UnaryExpr(op, unary) => UnaryExpr(op, unary.subst(dbi, replacement)),
-
-            BinaryExpr(op, lhs, rhs) => {
-                BinaryExpr(op, lhs.subst(dbi, replacement), rhs.subst(dbi, replacement))
-            }
 
             AtomExpr(AtomLambda(nested_param, nested_dbi, nested_body)) => {
                 let nested_argc = nested_param.len();

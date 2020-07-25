@@ -34,6 +34,7 @@ pub enum RuntimeError {
     NoMember(String, Type),
     AmbiguousMember(String),
     NonExhaustive,
+    AwaitOutsideAsync,
     FFIError(FFIError),
 }
 
@@ -80,6 +81,9 @@ impl std::fmt::Display for RuntimeError {
             }
             RuntimeError::NotApplicable => write!(f, "TypeError: not a lambda"),
             RuntimeError::NonExhaustive => write!(f, "RuntimeError: non-exhaustive match rule"),
+            RuntimeError::AwaitOutsideAsync => {
+                write!(f, "CompileError: await should be inside async lambdas")
+            }
             RuntimeError::FFIError(err) => write!(f, "FFIError: {}", err),
         }
     }
@@ -113,6 +117,7 @@ pub enum Value {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Type {
+    AnyType,
     UnitType,
     NumberType,
     BoolType,
@@ -240,6 +245,7 @@ impl Value {
 impl std::fmt::Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Type::AnyType => write!(f, "Any"),
             Type::UnitType => write!(f, "Unit"),
             Type::NumberType => write!(f, "Number"),
             Type::BoolType => write!(f, "Bool"),

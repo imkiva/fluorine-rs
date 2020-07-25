@@ -26,7 +26,10 @@ use crate::{
             Constraint, Decl,
             Decl::{EnumDecl, ImplDecl, LetDecl, TraitDecl},
             Expr,
-            Expr::{ApplyExpr, AtomExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit, DBI},
+            Expr::{
+                ApplyExpr, AtomExpr, AwaitExpr, BinaryExpr, MatchExpr, MemberExpr, UnaryExpr, Unit,
+                DBI,
+            },
             GenericParam, Ident, Lit,
             Lit::{LitBool, LitNumber, LitString},
             MatchCase, Param, ParseType, Program, ProgramItem,
@@ -148,9 +151,10 @@ impl Eval for Expr {
             MatchExpr(expr, cases) => eval_match(ctx, *expr, cases),
             MemberExpr(lhs, id) => eval_member(ctx, *lhs, id),
 
-            DBI(_) => unreachable!("dangling dbi"),
-            UnaryExpr(_, _) => unreachable!("Desugar bug"),
-            BinaryExpr(_, _, _) => unreachable!("Desugar bug"),
+            AwaitExpr(_) => Err(RuntimeError::AwaitOutsideAsync),
+            DBI(_) => unreachable!("Desugar bug: raw lambda"),
+            UnaryExpr(_, _) => unreachable!("Desugar bug: unary expr"),
+            BinaryExpr(_, _, _) => unreachable!("Desugar bug: binary expr"),
         }
     }
 }
@@ -161,7 +165,7 @@ impl Eval for Atom {
             AtomLit(lit) => lit.eval_into(ctx),
             AtomId(id) => ctx.get_var(id.as_str()),
             AtomLambda(argc, dbi, body) => Ok(LambdaValue(argc, dbi, body)),
-            AtomRawLambda(_, _) => unreachable!("dangling raw lambda"),
+            AtomRawLambda(_) => unreachable!("dangling raw lambda"),
         }
     }
 }
@@ -332,6 +336,7 @@ impl Context {
 
     fn resolve_type(&self, name: String) -> Result<Type, RuntimeError> {
         match name.as_str() {
+            "Any" => Ok(Type::AnyType),
             "Unit" => Ok(Type::UnitType),
             "Number" => Ok(Type::NumberType),
             "Bool" => Ok(Type::BoolType),
@@ -446,10 +451,10 @@ fn check_concrete(
 ) -> Result<(), RuntimeError> {
     // TODO: type inference instead of eval
     let got = arg.clone().eval_into(ctx)?.get_type();
-    if expected != got {
-        Err(ArgTypeMismatch(index, expected, got))
-    } else {
-        Ok(())
+    match expected {
+        Type::AnyType => Ok(()),
+        expected if expected == got => Ok(()),
+        expected => Err(ArgTypeMismatch(index, expected, got)),
     }
 }
 

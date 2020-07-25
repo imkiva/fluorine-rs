@@ -16,7 +16,11 @@ let eval = { expr ->
     }
 }
 
-// (1 + 8) * 10
-let tree = Mul(Add(Lit(1), Lit(8)), Lit(10))
+// (((1 + 8) * 10) + 2) * 3
+let tree = Mul(Lit(3), Add(Lit(2), Mul(Add(Lit(1), Lit(8)), Lit(10))))
+
+// tree / (tree / (tree / (tree / (tree / 2))))
+let tree2 = Div(tree, Div(tree, Div(tree, Div(tree, Div(tree, Lit(2))))))
 
 println(eval(tree))
+println(eval(tree2))
